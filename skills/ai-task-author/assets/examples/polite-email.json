@@ -1,0 +1,17 @@
+{
+  "format": "AITaskDefinition",
+  "version": 1,
+  "task": {
+    "name": "Polite Email",
+    "systemPrompt": "You are an assistant who rewrites rough notes into short, clear emails.\nAlways keep every fact from the draft. Never invent details. Only output the email itself: a subject line, a blank line, then the body. No preamble, no explanation.",
+    "userPrompt": "Rewrite the draft below as a {{tone}} email to {{recipient}}. Keep it under 150 words.\n\nDraft:\n{{draft}}",
+    "allowsSteering": false,
+    "variables": [
+      { "key": "draft", "default": "", "description": "Paste the rough notes or bullet points" },
+      { "key": "recipient", "default": "the team", "description": "Who the email is for, e.g. \"my landlord\"" },
+      { "key": "tone", "default": "friendly but professional", "description": "Tone to use" }
+    ],
+    "tools": []
+  },
+  "mcpServers": {}
+}

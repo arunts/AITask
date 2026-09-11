@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SKILL.md · ai-task-author</title>
+<meta name="description" content="The instructions a coding agent follows when it uses the skill.">
+<meta property="og:title" content="SKILL.md · ai-task-author">
+<meta property="og:description" content="The instructions a coding agent follows when it uses the skill.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="../../assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="128x128" href="../../assets/icon-128.png">
+<link rel="apple-touch-icon" href="../../assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../../assets/site.css?v=50229b803f">
+</head>
+<body>
+<div class="sheet">
+  <nav class="nav">
+    <a class="brand" href="../../">
+      <img src="../../assets/icon-128.png" alt="" width="34" height="34">
+      <span><b>AITaskRunner</b><small>Saved tasks for local models</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="../../#why" >Why</a>
+      <a href="../../tasks/" >Tasks</a>
+      <a href="../../spec/" >Spec</a>
+      <a href="../../skill/" aria-current="page">Skill</a>
+      <a href="https://github.com/arunts/AITask">GitHub</a>
+      <a class="btn btn-primary" href="../../downloads/AITaskRunner.dmg">Download</a>
+    </div>
+  </nav>
+
+  <header class="page-head">
+    <div class="crumbs"><a href="../../skill/">Skill</a><span>›</span>SKILL.md</div>
+    <h1>SKILL.md</h1>
+    <p class="lede">The instructions a coding agent follows when it uses the skill.</p>
+  </header>
+
+  <div class="doc">
+    <nav class="toc" aria-label="On this page">
+      <p class="eyebrow">On this page</p>
+      <ol>
+        <li><a href="#tools-a-task-can-use">Tools a task can use</a></li>
+        <li><a href="#workflow">Workflow</a></li>
+        <li><a href="#what-the-importer-refuses-errors">What the importer refuses (errors)</a></li>
+        <li><a href="#what-goes-wrong-silently-warnings">What goes wrong silently (warnings)</a></li>
+        <li><a href="#examples">Examples</a></li>
+      </ol>
+      <p class="small muted" style="margin-top: 16px">Rendered from <code>skills/ai-task-author/SKILL.md</code> in the repository.</p>
+    </nav>
+    <article class="prose">
+<p>AITaskRunner is a Mac app that runs saved &quot;tasks&quot; on any OpenAI-compatible endpoint (Ollama, LM Studio, llama.cpp, vLLM, MLX and others, local or remote) or Apple&#x27;s on-device Foundation model. A task is saved as a JSON file with <code>&quot;format&quot;: &quot;AITaskDefinition&quot;</code> and holds:</p>
+<ul>
+<li>a <strong>system prompt</strong> (the model&#x27;s job description, optional),</li>
+<li>a <strong>user prompt</strong> (the concrete job, required),</li>
+<li><strong>variables</strong> the user fills in before each run, referenced as <code>{{key}}</code>,</li>
+<li><strong>tools</strong> the model may call: the built-in Shell pack, or MCP servers,</li>
+<li>an <strong>interactive</strong> switch that gives the model an <code>ask_user</code> tool and a chat box.</li>
+</ul>
+<p>Your job: interview the user briefly, write the prompts, pick the tools, produce <code>&lt;Name&gt;.json</code>, validate it with the bundled script, and tell them how to import it. Model choice and sampling settings are picked inside the app, never in the file, so do not ask about them.</p>
+<h2 id="tools-a-task-can-use">Tools a task can use</h2>
+<p><strong>Built into the app</strong> (nothing to install; details, arguments and file recipes in <code>references/builtin-tools.md</code>).</p>
+<div class="table-scroll"><table><thead><tr><th>Tool</th><th>Does</th></tr></thead><tbody><tr><td><code>shell__run</code></td><td>Run a command line in the login shell, with per-command approval. Reading, writing, finding and moving files all go through it (<code>ls</code>, <code>cat</code>, <code>find</code>, <code>grep</code>, heredocs, <code>mv</code>).</td></tr><tr><td><code>ask_user</code></td><td>Ask the user a question mid-run (interactive tasks only; not listed in <code>tools</code>)</td></tr></tbody></table></div>
+<p>Shell commands are not confined to a folder; the user approves each one in the run window. Inside the AITaskRunner repo, <code>python3 scripts/list_builtin_tools.py</code> prints the live list from the Swift sources; <code>--check</code> confirms the validator agrees with them.</p>
+<p><strong>When the shell is not enough</strong>, read <code>references/mcp-servers.md</code>: it has a ladder (built-in shell → servers the user already has → known servers → search the MCP registry → say no and offer a shell fallback), a table of known servers with ready-made definitions, and how to verify a server and its tool names before writing them into a file. Never invent a server or tool name from memory; confirm it first.</p>
+<h2 id="workflow">Workflow</h2>
+<h3 id="1-understand-the-job">1. Understand the job</h3>
+<p>Restate in one sentence what the task should produce each time it runs. From the description, work out:</p>
+<ul>
+<li>what changes from run to run → <strong>variables</strong> (text, file, folder or list),</li>
+<li>what the model has to touch → <strong>tools</strong> (none, Shell, an MCP server),</li>
+<li>whether it needs to check in mid-run → <strong>interactive</strong>.</li>
+</ul>
+<h3 id="2-ask-only-what-changes-the-file">2. Ask only what changes the file</h3>
+<p>Put every open question in one message and suggest a default for each, so &quot;looks good&quot; is a complete answer. Skip anything the description already settles. Typical questions:</p>
+<ul>
+<li>Which inputs differ per run, and their defaults (a folder, a topic, a URL, pasted text)?</li>
+<li>Which folders may it read or write? Should output go to a file or just the transcript?</li>
+<li>What should the output look like (Markdown, bullets, a table, JSON)?</li>
+<li>May the model ask questions during the run, or should it finish unattended?</li>
+<li>If an external service is needed: which MCP server do they already have, or which one should the file define?</li>
+</ul>
+<h3 id="3-write-the-prompts">3. Write the prompts</h3>
+<p>Read <code>references/task-format.md</code> for the exact JSON before writing. Guidance that matters for small local models:</p>
+<ul>
+<li><strong>System prompt</strong> = job description: persona, binding rules phrased Always / Never / Only, output format, tool habits. Keep it general; the specific job goes in the user prompt.</li>
+<li><strong>User prompt</strong> = the concrete job with <code>{{variables}}</code>, explicit tool names (<code>shell__run</code>, <code>&lt;server&gt;__&lt;tool&gt;</code>) and, for shell steps, the actual command to run. Numbered steps beat prose for 7B-class models. Say exactly what to output and when to stop.</li>
+<li>One job per task. Short beats thorough: the Apple Foundation model has roughly a 4K-token window, and small local models pick tools badly when the context is crowded.</li>
+<li>Interactive tasks: tell the model when to call <code>ask_user</code> (&quot;Before trashing anything, ask_user to confirm the list&quot;).</li>
+</ul>
+<h3 id="4-pick-tools">4. Pick tools</h3>
+<ul>
+<li>Prefer the built-in shell: <code>{ &quot;builtin&quot;: &quot;shell&quot; }</code>. It runs commands with per-command approval and covers files, git, brew, curl and anything else with a CLI. Recipes are in <code>references/builtin-tools.md</code>.</li>
+<li>Add an MCP server only when the shell cannot do it well, following the ladder in <code>references/mcp-servers.md</code>. Define it under <code>mcpServers</code> in the same shape Claude Desktop uses; the task refers to it by its slug. Tell the user what runtime to install (Node for <code>npx</code>, uv for <code>uvx</code>).</li>
+<li>Never put API keys or tokens in the file. Leave <code>env</code> and <code>headers</code> out, and tell the user to add them in Settings › Tools after importing. If a header is structurally required, use an obvious placeholder such as <code>REPLACE_ME</code>.</li>
+</ul>
+<h3 id="5-write-validate-deliver">5. Write, validate, deliver</h3>
+<ol>
+<li>Write <code>&lt;Task Name&gt;.json</code>, pretty-printed UTF-8, in the working directory or wherever the user asked.</li>
+<li><p>Run the validator and fix every error. Keep a warning only when it is intentional, and say why.</p>
+<pre><code class="language-bash">python3 &lt;skill-dir&gt;/scripts/validate_task.py &quot;&lt;file&gt;&quot;</code></pre></li>
+<li>Report: a short summary (what it does, its variables, its tools, whether it is interactive), the validator output, and the file path.</li>
+<li>Import instructions for the user: in AITaskRunner choose File › Import Task… (⌘⇧I) or the + button above the task list, pick the file, check the preview, and click Import Task. Servers the file defines are added automatically. Then pick a model in the toolbar and press Run (⌘R); variables are asked for before each run.</li>
+</ol>
+<h2 id="what-the-importer-refuses-errors">What the importer refuses (errors)</h2>
+<ul>
+<li>Missing <code>&quot;format&quot;: &quot;AITaskDefinition&quot;</code>, <code>&quot;version&quot;: 1</code>, or a <code>&quot;task&quot;</code> object. (<code>&quot;oddjobs-task&quot;</code>, the old name, still imports.)</li>
+<li>Empty <code>task.userPrompt</code>.</li>
+<li>A <code>tools[]</code> entry that is neither <code>{&quot;builtin&quot;: &quot;shell&quot;, ...}</code> nor <code>{&quot;server&quot;: &quot;&lt;slug&gt;&quot;, ...}</code>, an unknown built-in pack, or an unknown built-in tool name.</li>
+<li>A <code>server</code> slug with no definition under <code>mcpServers</code> (unless a server with that slug already exists in the app).</li>
+<li>An <code>mcpServers</code> definition without <code>command</code> (stdio) or <code>url</code> (http).</li>
+</ul>
+<h2 id="what-goes-wrong-silently-warnings">What goes wrong silently (warnings)</h2>
+<ul>
+<li>A <code>{{placeholder}}</code> with no matching variable is sent to the model as literal text.</li>
+<li>Variable keys are sanitized to letters, digits, <code>_</code>, <code>.</code>, <code>-</code>; spaces become <code>_</code>. Use the sanitized form in the prompts.</li>
+<li><code>tools[].server</code> must equal the slug of the <code>mcpServers</code> key: lowercase, <code>a-z</code>, <code>0-9</code> and <code>-</code> kept, everything else becomes <code>_</code>. Lowercase keys avoid surprises.</li>
+<li>If the app already has a server with the same slug, the file&#x27;s definition is ignored and the existing one is reused.</li>
+<li>The Shell pack can be turned off in Settings › Tools; the import succeeds with a warning.</li>
+<li><code>tools: null</code> (or omitted) means every tool the server offers, including ones added later.</li>
+<li><code>&quot;builtin&quot;: &quot;bash&quot;</code> (the pack&#x27;s old name) still imports as Shell, but prompts must say <code>shell__run</code>.</li>
+</ul>
+<h2 id="examples">Examples</h2>
+<p>Four complete files live in <code>assets/examples/</code>: prompt-only, Shell for files, Shell plus interactive, and an MCP server. Start from the closest one and adapt it rather than writing from scratch.</p>
+
+    </article>
+  </div>
+
+
+  <footer class="footer">
+    <span>AITaskRunner for macOS · v1.0</span>
+    <a href="../../tasks/">Task repository</a>
+    <a href="../../spec/">AITaskDefinition spec</a>
+    <a href="../../skill/">Authoring skill</a>
+    <a href="https://github.com/arunts/AITask">Source on GitHub</a>
+    <span class="spacer"></span>
+  </footer>
+</div>
+<script src="../../assets/site.js?v=50229b803f" defer></script>
+</body>
+</html>

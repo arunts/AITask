@@ -1,0 +1,4 @@
+// Signing settings live outside the tracked project file so the repository carries no team identifiers.
+// Copy Local.xcconfig.example to Local.xcconfig (git-ignored) and fill in your Apple Developer Team ID.
+// Without it, Xcode builds and runs the app unsigned-for-distribution (ad hoc / development signing).
+#include? "Local.xcconfig"

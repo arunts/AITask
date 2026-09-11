@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task repository · AITaskRunner</title>
+<meta name="description" content="Ready-made AITaskRunner tasks: download the JSON, import it, run it on your local model.">
+<meta property="og:title" content="Task repository · AITaskRunner">
+<meta property="og:description" content="Ready-made AITaskRunner tasks: download the JSON, import it, run it on your local model.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="../assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="128x128" href="../assets/icon-128.png">
+<link rel="apple-touch-icon" href="../assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../assets/site.css?v=50229b803f">
+</head>
+<body>
+<div class="sheet">
+  <nav class="nav">
+    <a class="brand" href="../">
+      <img src="../assets/icon-128.png" alt="" width="34" height="34">
+      <span><b>AITaskRunner</b><small>Saved tasks for local models</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="../#why" >Why</a>
+      <a href="../tasks/" aria-current="page">Tasks</a>
+      <a href="../spec/" >Spec</a>
+      <a href="../skill/" >Skill</a>
+      <a href="https://github.com/arunts/AITask">GitHub</a>
+      <a class="btn btn-primary" href="../downloads/AITaskRunner.dmg">Download</a>
+    </div>
+  </nav>
+
+  <header class="page-head">
+    <p class="eyebrow">Tasks</p>
+    <h1>Task repository</h1>
+    <p class="lede">Each task is one <code>.json</code> file. Download it and import it into AITaskRunner. Servers a task needs are added for you.</p>
+  </header>
+
+  <div class="wrap" style="padding-bottom: clamp(48px, 7vw, 88px)">
+    <div class="filters">
+      <label class="search">
+        <span class="visually-hidden">Search tasks</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input id="task-search" type="search" placeholder="Search by name, description or tool…" autocomplete="off">
+      </label>
+      <div class="filter-row">
+        <span class="label">Needs</span>
+        <button class="chip filter" data-kind="needs" data-value="app" aria-pressed="false">App</button>
+        <button class="chip filter" data-kind="needs" data-value="mcp" aria-pressed="false">An MCP server</button>
+      </div>
+      <div class="filter-row">
+        <span class="label">Mode</span>
+        <button class="chip filter" data-kind="interactive" data-value="1" aria-pressed="false">Interactive</button>
+      </div>
+      <div class="filter-row">
+        <span class="label">About</span>
+        <button class="chip filter" data-kind="tag" data-value="files" aria-pressed="false">Files &amp; folders</button>
+        <button class="chip filter" data-kind="tag" data-value="writing" aria-pressed="false">Writing</button>
+        <button id="filter-clear" class="filter-clear" hidden>Clear filters</button>
+      </div>
+    </div>
+
+    <div class="count" id="task-count">1 task</div>
+    <div class="grid" id="task-list">
+      <a class="card task-card" href="../tasks/summarise-notes/" data-slug="summarise-notes">
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        <h3>Summarise Notes Folder</h3>
+        <p class="desc">Reads every Markdown and text file at the top of a folder and writes a SUMMARY.md next to them: one paragraph overall, then two sentences per file.</p>
+        <div class="meta"><span class="chip tag">Files &amp; folders</span><span class="chip tag">Writing</span></div>
+      </a>
+    </div>
+    <div class="empty" id="task-empty" hidden>No task matches those filters.</div>
+
+    <hr>
+    <div class="split">
+      <div>
+        <h3>Want one that is not here?</h3>
+        <p class="muted">Install the <a href="../skill/">ai-task-author skill</a> and ask your coding agent for it, or write one by hand with the <a href="../spec/">specification</a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <script id="task-data" type="application/json">[{"slug": "summarise-notes", "name": "Summarise Notes Folder", "description": "Reads every Markdown and text file at the top of a folder and writes a SUMMARY.md next to them: one paragraph overall, then two sentences per file.", "tags": ["files", "writing"], "needs": "app", "interactive": false, "search": "shell notes_folder max_files"}]</script>
+
+
+  <footer class="footer">
+    <span>AITaskRunner for macOS · v1.0</span>
+    <a href="../tasks/">Task repository</a>
+    <a href="../spec/">AITaskDefinition spec</a>
+    <a href="../skill/">Authoring skill</a>
+    <a href="https://github.com/arunts/AITask">Source on GitHub</a>
+    <span class="spacer"></span>
+  </footer>
+</div>
+<script src="../assets/site.js?v=50229b803f" defer></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "format": "AITaskDefinition",
+  "version": 1,
+  "task": {
+    "name": "Summarise Web Page",
+    "systemPrompt": "You summarise web pages for a busy reader. Always fetch the page with fetch__fetch before writing anything; never rely on memory of the site. Reply in Markdown.",
+    "userPrompt": "Fetch {{url}} with fetch__fetch (max_length 20000). Then write:\n- **Title** (one line)\n- **In brief**: three bullets, one sentence each\n- **Worth knowing**: up to five bullets with concrete facts, numbers or names from the page\n\nIf the page could not be fetched, say so in one line and stop.",
+    "allowsSteering": false,
+    "variables": [
+      { "key": "url", "default": "https://developer.apple.com/documentation/foundationmodels", "description": "Page to summarise" }
+    ],
+    "tools": [
+      { "server": "fetch", "tools": null }
+    ]
+  },
+  "mcpServers": {
+    "fetch": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    }
+  }
+}

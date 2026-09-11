@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Built-in tools · ai-task-author</title>
+<meta name="description" content="The Shell tool, file recipes that small models follow, and ask_user.">
+<meta property="og:title" content="Built-in tools · ai-task-author">
+<meta property="og:description" content="The Shell tool, file recipes that small models follow, and ask_user.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="../../assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="128x128" href="../../assets/icon-128.png">
+<link rel="apple-touch-icon" href="../../assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../../assets/site.css?v=50229b803f">
+</head>
+<body>
+<div class="sheet">
+  <nav class="nav">
+    <a class="brand" href="../../">
+      <img src="../../assets/icon-128.png" alt="" width="34" height="34">
+      <span><b>AITaskRunner</b><small>Saved tasks for local models</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="../../#why" >Why</a>
+      <a href="../../tasks/" >Tasks</a>
+      <a href="../../spec/" >Spec</a>
+      <a href="../../skill/" aria-current="page">Skill</a>
+      <a href="https://github.com/arunts/AITask">GitHub</a>
+      <a class="btn btn-primary" href="../../downloads/AITaskRunner.dmg">Download</a>
+    </div>
+  </nav>
+
+  <header class="page-head">
+    <div class="crumbs"><a href="../../skill/">Skill</a><span>›</span>Built-in tools</div>
+    <h1>Built-in tools</h1>
+    <p class="lede">The Shell tool, file recipes that small models follow, and ask_user.</p>
+  </header>
+
+  <div class="doc">
+    <nav class="toc" aria-label="On this page">
+      <p class="eyebrow">On this page</p>
+      <ol>
+        <li><a href="#shell-one-tool-run">shell — one tool, run</a></li>
+        <li><a href="#ask-user-only-when-allowssteering-is-true">ask_user — only when allowsSteering is true</a></li>
+        <li><a href="#renamed-from-bash">Renamed from Bash</a></li>
+      </ol>
+      <p class="small muted" style="margin-top: 16px">Rendered from <code>skills/ai-task-author/references/builtin-tools.md</code> in the repository.</p>
+    </nav>
+    <article class="prose">
+<p>The app ships one built-in pack, <strong>Shell</strong>, which appears to the model as <code>shell__run</code>. It needs nothing installed. The user can turn it off in Settings › Tools; an imported task that needs it imports with a warning and fails at run time until it is re-enabled.</p>
+<h2 id="shell-one-tool-run"><code>shell</code> — one tool, <code>run</code></h2>
+<div class="table-scroll"><table><thead><tr><th>Tool</th><th>What it does</th><th>Arguments (<code>*</code> required)</th></tr></thead><tbody><tr><td><code>run</code></td><td>Runs a command line in the user&#x27;s login shell (<code>zsh -l -c</code>) and returns <code>$ command</code>, cwd, exit code, timing, stdout and stderr.</td><td><code>command*</code>, <code>working_directory</code> (default: the folder set in Settings › Tools), <code>timeout_seconds</code> (Settings default 60, max 600)</td></tr></tbody></table></div>
+<p>Behaviour:</p>
+<ul>
+<li>Every command is shown to the user for approval before it runs (Deny / Allow / Allow All This Run) unless they turned approval off in Settings › Tools › Shell.</li>
+<li>Commands are not confined to any folder; they can reach anything the user&#x27;s account can. Say so in the prompt when the job is destructive, and make the prompt use the Trash rather than <code>rm</code>.</li>
+<li>Output is truncated at about 30 000 characters; tell the model to pipe through <code>head</code>, <code>tail</code> or <code>wc</code> for large output.</li>
+<li>Non-zero exit is reported as a tool error, which the model sees and can react to.</li>
+<li><code>~</code> is expanded in <code>working_directory</code> and inside the command, as in any shell.</li>
+</ul>
+<p>Working with files goes through the shell too. Recipes that small models follow well when spelled out in the prompt:</p>
+<div class="table-scroll"><table><thead><tr><th>Job</th><th>Command to name in the prompt</th></tr></thead><tbody><tr><td>List a folder</td><td><code>ls -la {{folder}}</code> or <code>find {{folder}} -maxdepth 1 -name &#x27;*.md&#x27;</code></td></tr><tr><td>Read a text file</td><td><code>cat &quot;{{folder}}/notes.md&quot;</code> (add <code>| head -c 20000</code> to cap size)</td></tr><tr><td>Find files</td><td><code>find {{folder}} -iname &#x27;*report*&#x27;</code>, <code>grep -ril &quot;budget&quot; {{folder}}</code></td></tr><tr><td>Write a file</td><td><code>cat &gt; &quot;{{folder}}/SUMMARY.md&quot; &lt;&lt;&#x27;EOF&#x27;</code> … <code>EOF</code></td></tr><tr><td>Append</td><td><code>cat &gt;&gt; file &lt;&lt;&#x27;EOF&#x27;</code> … <code>EOF</code></td></tr><tr><td>Make a folder</td><td><code>mkdir -p &quot;{{folder}}/archive&quot;</code></td></tr><tr><td>Move, rename, copy</td><td><code>mv</code>, <code>cp -R</code></td></tr><tr><td>Trash instead of delete</td><td><code>osascript -e &#x27;tell application &quot;Finder&quot; to delete POSIX file &quot;/full/path&quot;&#x27;</code></td></tr><tr><td>Size of things</td><td><code>du -sh {{folder}}/* | sort -h | tail -n 15</code></td></tr><tr><td>File details</td><td><code>stat -f &#x27;%N %z bytes %Sm&#x27; &quot;path&quot;</code></td></tr></tbody></table></div>
+<p>Prompt tips:</p>
+<ul>
+<li>Quote paths in the commands you write into the prompt, so spaces in the user&#x27;s folders do not break them.</li>
+<li>One command per step. Small models handle &quot;Run <code>ls …</code>. Then for each file run <code>cat …</code>&quot; far better than a single pipeline that does everything.</li>
+<li>Read-only jobs: say &quot;Only run commands that read; never write, move or delete.&quot; The user still approves each command, but the model then stops proposing risky ones.</li>
+<li>Output that must land on disk needs an explicit write step (heredoc); otherwise the result only appears in the run transcript.</li>
+</ul>
+<h2 id="ask-user-only-when-allowssteering-is-true"><code>ask_user</code> — only when <code>allowsSteering</code> is <code>true</code></h2>
+<div class="table-scroll"><table><thead><tr><th>Tool</th><th>What it does</th><th>Arguments</th></tr></thead><tbody><tr><td><code>ask_user</code></td><td>Shows a question in the run window and suspends until the user answers (or stops the run).</td><td><code>question*</code></td></tr></tbody></table></div>
+<p>Not attached in <code>tools[]</code>; the app adds it automatically for interactive tasks. Tell the model when to use it (&quot;ask_user before any destructive step&quot;, &quot;if the brief is ambiguous, ask_user once, then proceed&quot;) and when not to (&quot;do not ask for confirmation of read-only steps&quot;). Non-interactive tasks should be written to finish without questions.</p>
+<h2 id="renamed-from-bash">Renamed from Bash</h2>
+<p>Files exported by older versions of the app use <code>&quot;builtin&quot;: &quot;bash&quot;</code> and mention <code>bash__run</code> in prompts. The app still imports <code>&quot;bash&quot;</code> as the Shell pack, but the tool the model sees is now <code>shell__run</code>, so rewrite prompt references when you touch such a file. The old <code>files</code> pack no longer exists; replace <code>files__*</code> calls with the shell recipes above.</p>
+
+    </article>
+  </div>
+
+
+  <footer class="footer">
+    <span>AITaskRunner for macOS · v1.0</span>
+    <a href="../../tasks/">Task repository</a>
+    <a href="../../spec/">AITaskDefinition spec</a>
+    <a href="../../skill/">Authoring skill</a>
+    <a href="https://github.com/arunts/AITask">Source on GitHub</a>
+    <span class="spacer"></span>
+  </footer>
+</div>
+<script src="../../assets/site.js?v=50229b803f" defer></script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AITaskRunner · saved tasks for local models on your Mac</title>
+<meta name="description" content="A Mac app for defining and running bare-bones tasks on local models: the instructions and the inputs, nothing else, so small models on your Mac stay on track. Run them on demand or on a schedule.">
+<meta property="og:title" content="AITaskRunner · saved tasks for local models on your Mac">
+<meta property="og:description" content="A Mac app for defining and running bare-bones tasks on local models: the instructions and the inputs, nothing else, so small models on your Mac stay on track. Run them on demand or on a schedule.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="./assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="128x128" href="./assets/icon-128.png">
+<link rel="apple-touch-icon" href="./assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="./assets/site.css?v=50229b803f">
+</head>
+<body>
+<div class="sheet">
+  <nav class="nav">
+    <a class="brand" href="./">
+      <img src="./assets/icon-128.png" alt="" width="34" height="34">
+      <span><b>AITaskRunner</b><small>Saved tasks for local models</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="./#why" aria-current="page">Why</a>
+      <a href="./tasks/" >Tasks</a>
+      <a href="./spec/" >Spec</a>
+      <a href="./skill/" >Skill</a>
+      <a href="https://github.com/arunts/AITask">GitHub</a>
+      <a class="btn btn-primary" href="./downloads/AITaskRunner.dmg">Download</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <p class="eyebrow reveal">A Mac app for local models</p>
+      <h1 class="reveal">Bare-bones tasks for <em>local</em> models.</h1>
+      <p class="lede reveal">A task is the smallest set of instructions that gets a job done: what to do, and the inputs to ask for. AITaskRunner sends the model exactly that and nothing else, so small models running on your Mac stay on track. Save the tasks you repeat and run them again, on demand or on a schedule.</p>
+      <div class="hero-actions reveal">
+        <a class="btn btn-primary btn-lg" href="./downloads/AITaskRunner.dmg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          Download for macOS
+        </a>
+        <a class="btn btn-outline btn-lg" href="./tasks/">Browse tasks</a>
+      </div>
+      <div class="hero-meta reveal">
+        <span>Version 1.0</span>
+        <span>macOS 26.5 or later</span>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <img class="icon" src="./assets/icon-512.png" alt="" width="260" height="260">
+    </div>
+  </header>
+
+  <section class="section" id="why">
+    <div class="section-head">
+      <p class="eyebrow">Why bare-bones</p>
+      <h2>No bloat, on purpose.</h2>
+      <p>Local models have small context windows and lose the thread when they are crowded. A task keeps the context to what you wrote.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <h3>Only your instructions</h3>
+        <p>A system prompt for the standing rules and a user prompt for the job. There is no hidden framework prompt wrapped around them.</p>
+      </div>
+      <div class="step">
+        <h3>Only the inputs it needs</h3>
+        <p>Name the values the task should ask for, such as a piece of text, a file or a folder, and the app asks for them before each run.</p>
+      </div>
+      <div class="step">
+        <h3>Only your Mac</h3>
+        <p>Runs on Ollama, LM Studio, llama.cpp, vLLM or Apple's on-device model. No accounts, no analytics, nothing sent anywhere.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="how">
+    <div class="section-head">
+      <p class="eyebrow">How it works</p>
+      <h2>Define once, run again.</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <h3>Add a model</h3>
+        <p>Point the app at any OpenAI-compatible server on your Mac or your network. On Apple silicon the on-device model is there without setup.</p>
+      </div>
+      <div class="step">
+        <h3>Write a task</h3>
+        <p>A few lines of instructions and the inputs to ask for. Or import a task file someone else wrote.</p>
+      </div>
+      <div class="step">
+        <h3>Run it</h3>
+        <p>Fill in the inputs, pick a model, run it. Tasks you want repeated can run every few hours while the app is open.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="task-file">
+    <div class="split">
+      <div>
+        <p class="eyebrow">A task is one small file</p>
+        <h2>This is the whole task.</h2>
+        <p>A name, the standing rules, the job, and the inputs to ask for. Export it as JSON, share it, import it on another Mac.</p>
+        <p>The <a href="./spec/">AITaskDefinition specification</a> covers every field. The <a href="./skill/">ai-task-author skill</a> teaches Claude Code, Codex and other coding agents to write task files for you.</p>
+        <div class="hero-actions" style="margin-top: 20px">
+          <a class="btn btn-ink" href="./spec/">Read the spec</a>
+          <a class="btn btn-outline" href="./skill/">Get the skill</a>
+        </div>
+      </div>
+      <div class="figure">
+<pre><code>{
+  "format": "AITaskDefinition",
+  "version": 1,
+  "task": {
+    "name": "Rewrite for Clarity",
+    "systemPrompt": "You are a plain-English editor. Keep the meaning, cut the words.",
+    "userPrompt": "Rewrite the text below. Reply with the rewritten text only.\n\n{{text}}",
+    "variables": [
+      { "key": "text", "type": "text", "description": "The text to rewrite" }
+    ]
+  }
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="tasks">
+    <div class="section-head">
+      <p class="eyebrow">Task repository</p>
+      <h2>Ready-made tasks</h2>
+      <p>Each one is a JSON file: download it and import it into the app.</p>
+    </div>
+    <div class="grid">
+      <a class="card task-card" href="./tasks/summarise-notes/" data-slug="summarise-notes">
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        <h3>Summarise Notes Folder</h3>
+        <p class="desc">Reads every Markdown and text file at the top of a folder and writes a SUMMARY.md next to them: one paragraph overall, then two sentences per file.</p>
+        <div class="meta"><span class="chip tag">Files &amp; folders</span><span class="chip tag">Writing</span></div>
+      </a>
+    </div>
+    <p style="margin-top: 24px"><a class="btn btn-outline" href="./tasks/">All 1 task</a></p>
+  </section>
+
+  <section class="section" id="download">
+    <div class="split">
+      <div>
+        <p class="eyebrow">Download</p>
+        <h2>AITaskRunner 1.0</h2>
+        <p class="lede">A notarized disk image. Open it and drag AITaskRunner to Applications.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="./downloads/AITaskRunner.dmg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            Download for macOS
+          </a>
+          <a class="btn btn-outline btn-lg" href="https://github.com/arunts/AITask">Source on GitHub</a>
+        </div>
+        <div class="download-note"><p>AITaskRunner.dmg · 3.3 MB</p><p class="hash"><b>SHA-256</b> 0d2377b8bf45aa523f8585752b077b09e3be99aa299e8e7bdbffd4e241cd7f2c</p></div>
+      </div>
+      <div>
+        <h4>What you need</h4>
+        <ul class="checks">
+          <li>macOS 26.5 or later.</li>
+          <li>For local models: Ollama, LM Studio, llama.cpp, vLLM or any server that speaks <code>/v1/chat/completions</code>. The app ships with the usual localhost presets.</li>
+          <li>For Apple's model: an Apple silicon Mac with Apple Intelligence turned on.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+
+  <footer class="footer">
+    <span>AITaskRunner for macOS · v1.0</span>
+    <a href="./tasks/">Task repository</a>
+    <a href="./spec/">AITaskDefinition spec</a>
+    <a href="./skill/">Authoring skill</a>
+    <a href="https://github.com/arunts/AITask">Source on GitHub</a>
+    <span class="spacer"></span>
+  </footer>
+</div>
+<script src="./assets/site.js?v=50229b803f" defer></script>
+</body>
+</html>

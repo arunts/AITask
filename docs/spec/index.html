@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AITaskDefinition specification · AITaskRunner</title>
+<meta name="description" content="The complete reference for AITaskRunner task files: every field, import rules, and a checklist.">
+<meta property="og:title" content="AITaskDefinition specification · AITaskRunner">
+<meta property="og:description" content="The complete reference for AITaskRunner task files: every field, import rules, and a checklist.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="../assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="128x128" href="../assets/icon-128.png">
+<link rel="apple-touch-icon" href="../assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../assets/site.css?v=50229b803f">
+</head>
+<body>
+<div class="sheet">
+  <nav class="nav">
+    <a class="brand" href="../">
+      <img src="../assets/icon-128.png" alt="" width="34" height="34">
+      <span><b>AITaskRunner</b><small>Saved tasks for local models</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="../#why" >Why</a>
+      <a href="../tasks/" >Tasks</a>
+      <a href="../spec/" aria-current="page">Spec</a>
+      <a href="../skill/" >Skill</a>
+      <a href="https://github.com/arunts/AITask">GitHub</a>
+      <a class="btn btn-primary" href="../downloads/AITaskRunner.dmg">Download</a>
+    </div>
+  </nav>
+
+  <header class="page-head">
+    <p class="eyebrow">Specification</p>
+    <h1>AITaskDefinition file format</h1>
+    <p class="lede">A task file is a small JSON text file that holds one task: its prompts, the values it asks for, and the tools the model may use. This page is the complete reference for version 1 of the format, as read and written by AITaskRunner 1.0.</p>
+  </header>
+
+  <div class="doc">
+    <nav class="toc" aria-label="On this page">
+      <p class="eyebrow">On this page</p>
+      <ol>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#example">A complete example</a></li>
+        <li><a href="#wrapper">The outer wrapper</a></li>
+        <li><a href="#task">The task</a></li>
+        <li><a href="#variables">Variables</a></li>
+        <li><a href="#tools">Tools</a></li>
+        <li><a href="#builtin">Built-in tools</a></li>
+        <li><a href="#mcp">MCP servers</a></li>
+        <li><a href="#import">What happens on import</a></li>
+        <li><a href="#export">How the app exports</a></li>
+        <li><a href="#validate">Validating by hand</a></li>
+        <li><a href="#checklist">Checklist before sharing a file</a></li>
+      </ol>
+      <p class="small muted" style="margin-top: 16px">Also available as <a href="../skill/task-format/">the skill's reference</a>.</p>
+    </nav>
+
+    <article class="prose">
+      <h2 id="overview">Overview</h2>
+      <p>The app reads and writes task files with a tolerant decoder: unknown keys are ignored and missing optional keys take their defaults, so a file written by hand can be as short as the required fields. Strict JSON: double quotes, no trailing commas, no comments. UTF-8. Line breaks inside a prompt are written as <code>\n</code>.</p>
+      <p>Not in the file, because they are choices about your Mac rather than about the task: which model runs it, generation settings such as temperature, its schedule, and any run history.</p>
+
+      <h2 id="example">A complete example</h2>
+<pre><code>{
+  "format": "AITaskDefinition",
+  "version": 1,
+  "task": {
+    "name": "Summarise Notes Folder",
+    "systemPrompt": "You are a concise technical writer. Reply in Markdown.",
+    "userPrompt": "1. Run shell__run with: find \"{{notes_folder}}\" -maxdepth 1 -name '*.md'\n2. Read each file with: cat \"&lt;path&gt;\"\n3. Write a summary to {{notes_folder}}/SUMMARY.md with: cat &gt; file &lt;&lt;'EOF'",
+    "allowsSteering": false,
+    "variables": [
+      { "key": "notes_folder", "type": "folder", "default": "~/Notes", "description": "Folder to summarise" },
+      { "key": "topics", "type": "list", "options": ["weather", "sport"], "description": "Topics to cover" }
+    ],
+    "tools": [
+      { "builtin": "shell" },
+      { "server": "fetch", "tools": null }
+    ]
+  },
+  "mcpServers": {
+    "fetch": { "type": "stdio", "command": "uvx", "args": ["mcp-server-fetch"] }
+  }
+}</code></pre>
+
+      <h2 id="wrapper">The outer wrapper</h2>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>format</code></td><td>string</td><td>yes</td><td>Exactly <code>"AITaskDefinition"</code>. Tells the app this is a task file and not some other JSON. Files saved by earlier versions say <code>"oddjobs-task"</code> and still import; always write the new name.</td></tr>
+          <tr><td><code>version</code></td><td>integer</td><td>yes</td><td><code>1</code>. The file format version. It only changes when the layout of the file itself changes. A file with a newer version than the app understands is refused.</td></tr>
+          <tr><td><code>task</code></td><td>object</td><td>yes</td><td>The task. See below.</td></tr>
+          <tr><td><code>mcpServers</code></td><td>object</td><td>no</td><td>Definitions of every external MCP server the task uses, keyed by name. Omit it or leave <code>{}</code> when the task only uses built-in tools.</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h2 id="task">The task</h2>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>name</code></td><td>string</td><td><code>""</code></td><td>Shown in the sidebar and as the window title. Empty is shown as “Untitled Task”. Short, title case.</td></tr>
+          <tr><td><code>systemPrompt</code></td><td>string</td><td><code>""</code></td><td>The model's standing brief: who it is, rules it must follow, how to answer. Sent before the user prompt on every run. Variables are substituted and tool names recognised here too.</td></tr>
+          <tr><td><code>userPrompt</code></td><td>string</td><td>—</td><td><strong>Required and non-empty.</strong> What the model should do. May mention variables as <code>{{key}}</code> and tools by name.</td></tr>
+          <tr><td><code>allowsSteering</code></td><td>boolean</td><td><code>false</code></td><td><code>true</code> makes the task interactive: the run window gets a chat box and the model gets an <code>ask_user</code> tool. Interactive tasks cannot be scheduled.</td></tr>
+          <tr><td><code>variables</code></td><td>array</td><td><code>[]</code></td><td>Values the app asks for before each run. See <a href="#variables">Variables</a>.</td></tr>
+          <tr><td><code>tools</code></td><td>array</td><td><code>[]</code></td><td>What the model may call. See <a href="#tools">Tools</a>.</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h2 id="variables">Variables</h2>
+      <p>A variable is a blank the task asks you to fill in each time it runs, such as a folder or a topic. In the prompts you refer to it as <code>{{key}}</code> (spaces inside the braces are tolerated), and the app swaps in the value before the model sees anything.</p>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>key</code></td><td>string</td><td>—</td><td>Required. The name used inside <code>{{ }}</code>. Sanitized on import: letters, digits, <code>_</code>, <code>.</code> and <code>-</code> are kept, whitespace becomes <code>_</code>, anything else is dropped. An entry whose key becomes empty is dropped.</td></tr>
+          <tr><td><code>type</code></td><td><code>"text"</code> · <code>"file"</code> · <code>"folder"</code> · <code>"list"</code></td><td><code>"text"</code></td><td><code>file</code> and <code>folder</code> show a Choose… button in the run sheet. <code>list</code> holds several values at once. Unknown values fall back to <code>text</code>.</td></tr>
+          <tr><td><code>default</code></td><td>string</td><td><code>""</code></td><td>Pre-filled in the run sheet; the value last used is remembered. <code>defaultValue</code> is accepted as an alias. Ignored for lists.</td></tr>
+          <tr><td><code>options</code></td><td>array of strings</td><td><code>[]</code></td><td>Lists only: the values, at most 100. Blanks and repeats are dropped. In the prompt <code>{{key}}</code> becomes all of them joined with <code>, </code>. Values added or removed while running are saved back onto the task.</td></tr>
+          <tr><td><code>description</code></td><td>string</td><td><code>""</code></td><td>One line shown under the field. Say what to enter.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="callout warn"><p>A <code>{{placeholder}}</code> with no matching variable is left in the prompt as-is and sent to the model as literal text. Keep the two in step. Paths are substituted exactly as typed; <code>~</code> is fine because the shell expands it.</p></div>
+      <p>Prefer a <code>folder</code> or <code>file</code> variable over asking the model to guess a path, and a default that makes the task runnable without typing anything. Use a <code>list</code> for a set of values that grows over time: topics to cover, feeds to check, languages to translate into.</p>
+
+      <h2 id="tools">Tools</h2>
+      <p>Each entry in <code>tools</code> attaches one source of tools. Exactly one of <code>builtin</code> or <code>server</code>:</p>
+<pre><code>{ "builtin": "shell" }
+{ "server": "fetch", "tools": null }
+{ "server": "github", "tools": ["search_issues", "get_issue"] }</code></pre>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Key</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>builtin</code></td><td>A pack that ships inside the app. Today that is <code>"shell"</code>. Unknown packs are refused. <code>"bash"</code>, the pack's old name, is still accepted and treated as <code>shell</code>.</td></tr>
+          <tr><td><code>server</code></td><td>The slug of an MCP server defined under <code>mcpServers</code>, or of one the user already has in the app.</td></tr>
+          <tr><td><code>tools</code></td><td>The exact tool names to expose, as an array. <code>null</code> or omitted means every tool the source offers, including ones added later. Unknown built-in tool names are refused. MCP tool names cannot be checked at import time, so spell them exactly as the server reports them. Fewer tools help small models choose well.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>The model sees each tool as <code>source__tool</code>: <code>shell__run</code>, <code>fetch__fetch</code>. Use those exact names in the prompts. The app highlights them, and small models follow explicit names far more reliably than descriptions. Order matters only for display; attaching the same source twice is pointless, and the last entry wins.</p>
+
+      <h2 id="builtin">Built-in tools</h2>
+      <p>One pack, <strong>Shell</strong>, which appears to the model as <code>shell__run</code>. Nothing to install. It can be turned off in the app; a task that needs it still imports, with a warning, and fails at run time until it is turned back on.</p>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Tool</th><th>What it does</th><th>Arguments</th></tr></thead>
+        <tbody>
+          <tr><td><code>shell__run</code></td><td>Runs a command line in the user's login shell (<code>zsh -l -c</code>) and returns the command, working directory, exit code, timing, stdout and stderr. Output is truncated at about 30 000 characters. A non-zero exit is reported as a tool error the model can react to.</td><td><code>command</code> (required), <code>working_directory</code> (default: the folder set in the app), <code>timeout_seconds</code> (default from Settings, 60; maximum 600)</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>Every command is shown for approval before it runs (Deny, Allow, or Allow All This Run) unless approval is turned off. In a scheduled run, commands run without asking. Commands are not confined to any folder; they can reach anything the user's account can. Write destructive jobs so the prompt uses the Trash rather than <code>rm</code>.</p>
+      <p>Working with files goes through the shell: <code>ls</code>, <code>cat</code>, <code>find</code>, <code>grep</code>, <code>mv</code>, and a heredoc (<code>cat &gt; file &lt;&lt;'EOF'</code>) to write. Quote paths in the commands you write into the prompt, so spaces in folder names do not break them.</p>
+      <h3 id="ask-user"><code>ask_user</code></h3>
+      <p>Not listed in <code>tools</code>. When <code>allowsSteering</code> is <code>true</code> the app adds it automatically. It shows a question in the run window and suspends the run until the user answers or stops it. One argument: <code>question</code>. Tell the model when to use it (“ask_user before any destructive step”) and when not to.</p>
+
+      <h2 id="mcp">MCP servers</h2>
+      <p>For anything the shell cannot do well, such as fetching web pages or talking to a service, a task can use an MCP server. Define it under <code>mcpServers</code> in the same shape Claude Desktop, Cursor, VS Code and Claude Code use. The key is the server's name; its <strong>slug</strong> is what <code>tools[].server</code> refers to.</p>
+      <p><strong>Slug rule:</strong> lowercase the name; keep ASCII letters, digits and <code>-</code>; every other run of characters becomes a single <code>_</code>; trim <code>_</code> and <code>-</code> from both ends. <code>"Brave Search"</code> → <code>brave_search</code>. A definition may carry its own <code>"name"</code>, which then replaces the key for both display and slug. Do not use <code>shell</code> or <code>bash</code> as a slug; they belong to the built-in pack.</p>
+      <h3 id="mcp-stdio">A server started as a local program</h3>
+<pre><code>"fetch": {
+  "type": "stdio",
+  "command": "uvx",
+  "args": ["mcp-server-fetch"],
+  "env": { "SOME_FLAG": "1" }
+}</code></pre>
+      <ul>
+        <li><code>command</code> is required. It is resolved through the user's login-shell PATH, so <code>npx</code>, <code>uvx</code>, <code>node</code> and <code>python3</code> work when installed.</li>
+        <li><code>args</code>: an array of strings (preferred) or one shell-style string.</li>
+        <li><code>env</code>: an object of string values. Optional.</li>
+      </ul>
+      <h3 id="mcp-http">A server reached over HTTP</h3>
+<pre><code>"docs": {
+  "type": "http",
+  "url": "https://mcp.example.com/mcp",
+  "headers": { "Authorization": "Bearer REPLACE_ME" }
+}</code></pre>
+      <ul>
+        <li><code>url</code> is required. <code>type</code> may also be <code>"streamable-http"</code> or <code>"sse"</code>.</li>
+        <li><code>headers</code>: an object of string values. Optional. The app sends static headers only; a server that needs an OAuth login flow will not work.</li>
+        <li>Without <code>type</code>, a definition with <code>command</code> is stdio and one with only <code>url</code> is HTTP.</li>
+      </ul>
+      <div class="callout"><p>Keep API keys out of shared files. Leave <code>env</code> and <code>headers</code> out and add them in the app after importing. Where a header is structurally required, use an obvious placeholder such as <code>REPLACE_ME</code>.</p></div>
+      <p>If the user already has a server with the same slug, the app reuses theirs and ignores the definition in the file. Otherwise the definition is added to the app with a fresh ID. Definitions that no <code>tools[]</code> entry references are ignored.</p>
+
+      <h2 id="import">What happens on import</h2>
+      <p>The preview shows the task, its variables, its tools, and which servers will be added or reused. Nothing is changed until the import is confirmed.</p>
+      <h3 id="refused">Refused</h3>
+      <ul>
+        <li>Missing <code>"format": "AITaskDefinition"</code> (or the legacy name), a <code>version</code> outside 1…1, or no <code>task</code> object.</li>
+        <li>An empty <code>task.userPrompt</code>.</li>
+        <li>A <code>tools[]</code> entry that is neither <code>builtin</code> nor <code>server</code>, an unknown built-in pack, or an unknown built-in tool name.</li>
+        <li>A <code>server</code> slug with no definition under <code>mcpServers</code>, unless a server with that slug already exists in the app.</li>
+        <li>An <code>mcpServers</code> definition without <code>command</code> (stdio) or <code>url</code> (HTTP).</li>
+      </ul>
+      <h3 id="warnings">Imports with a warning</h3>
+      <ul>
+        <li>The Shell pack is turned off in the app.</li>
+        <li>A list variable has more than 100 options; only the first 100 are kept.</li>
+      </ul>
+      <h3 id="silent">Goes wrong silently</h3>
+      <ul>
+        <li>A <code>{{placeholder}}</code> with no matching variable is sent to the model as literal text.</li>
+        <li>A variable key that needed sanitizing no longer matches the spelling used in the prompts.</li>
+        <li><code>tools[].server</code> spelled differently from the slug of its <code>mcpServers</code> key. Lowercase keys avoid surprises.</li>
+        <li>A prompt that says <code>bash__run</code>: the app accepts <code>"builtin": "bash"</code>, but the tool the model sees is <code>shell__run</code>.</li>
+        <li><code>ask_user</code> mentioned in a prompt while <code>allowsSteering</code> is <code>false</code>; the model will not have that tool.</li>
+      </ul>
+
+      <h2 id="export">How the app exports</h2>
+      <p>Exporting a task writes exactly this format. <code>env</code> and <code>headers</code> are left out unless “Include environment variables and HTTP headers” is ticked. Variables of type text carry their <code>default</code>; lists carry their <code>options</code>. Round-tripping a file through export and import is lossless apart from those secrets and the per-machine fields listed at the top.</p>
+
+      <h2 id="validate">Validating by hand</h2>
+      <p>The <a href="../skill/">authoring skill</a> ships a standard-library Python script that mirrors the importer and prints a preview. Exit code 0 means the app will import the file; 1 lists the errors; warnings never block.</p>
+<pre><code>python3 ai-task-author/scripts/validate_task.py "My Task.json"</code></pre>
+      <p>Inside the app, the task summary shows the tools the prompts name and flags any that are not attached, and the context section measures what the prompts and tool definitions cost against the chosen model's window.</p>
+
+      <h2 id="checklist">Checklist before sharing a file</h2>
+      <ol>
+        <li><code>format</code>, <code>version</code> and <code>task.userPrompt</code> present.</li>
+        <li>Every <code>{{placeholder}}</code> has a variable, and every variable is used.</li>
+        <li>Every <code>tools[].server</code> has a matching <code>mcpServers</code> slug.</li>
+        <li>Every tool name mentioned in the prompts is attached: <code>shell__run</code> needs the <code>shell</code> entry.</li>
+        <li><code>ask_user</code> mentioned only when <code>allowsSteering</code> is <code>true</code>.</li>
+        <li>No secrets in <code>env</code> or <code>headers</code>.</li>
+        <li>The validator exits 0.</li>
+      </ol>
+      <p class="muted small">Tips: start from an exported task and change it rather than typing from scratch. One thing per task, numbered steps, the tool names spelled out. Small local models follow that far better than prose, and Apple's on-device model has a window of roughly 4 000 tokens.</p>
+    </article>
+  </div>
+
+
+  <footer class="footer">
+    <span>AITaskRunner for macOS · v1.0</span>
+    <a href="../tasks/">Task repository</a>
+    <a href="../spec/">AITaskDefinition spec</a>
+    <a href="../skill/">Authoring skill</a>
+    <a href="https://github.com/arunts/AITask">Source on GitHub</a>
+    <span class="spacer"></span>
+  </footer>
+</div>
+<script src="../assets/site.js?v=50229b803f" defer></script>
+</body>
+</html>

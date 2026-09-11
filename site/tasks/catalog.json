@@ -1,0 +1,21 @@
+{
+  "categories": {
+    "writing": "Writing",
+    "files": "Files & folders",
+    "git": "Git",
+    "system": "System",
+    "web": "Web",
+    "productivity": "Productivity"
+  },
+  "tasks": [
+    {
+      "file": "summarise-notes.json",
+      "description": "Reads every Markdown and text file at the top of a folder and writes a SUMMARY.md next to them: one paragraph overall, then two sentences per file.",
+      "tags": [
+        "files",
+        "writing"
+      ],
+      "featured": true
+    }
+  ]
+}

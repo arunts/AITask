@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$title</title>
+<meta name="description" content="$description">
+<meta property="og:title" content="$title">
+<meta property="og:description" content="$description">
+<meta property="og:type" content="website">
+<meta property="og:image" content="${root}assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="128x128" href="${root}assets/icon-128.png">
+<link rel="apple-touch-icon" href="${root}assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="${root}assets/site.css?v=$assets_v">
+</head>
+<body>
+<div class="sheet">
+  <nav class="nav">
+    <a class="brand" href="${root}">
+      <img src="${root}assets/icon-128.png" alt="" width="34" height="34">
+      <span><b>AITaskRunner</b><small>Saved tasks for local models</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="${root}#why" $active_features>Why</a>
+      <a href="${root}tasks/" $active_tasks>Tasks</a>
+      <a href="${root}spec/" $active_spec>Spec</a>
+      <a href="${root}skill/" $active_skill>Skill</a>
+      <a href="$repo_url">GitHub</a>
+      <a class="btn btn-primary" href="$download_url">Download</a>
+    </div>
+  </nav>
+
+$body
+
+  <footer class="footer">
+    <span>AITaskRunner for macOS · v$version</span>
+    <a href="${root}tasks/">Task repository</a>
+    <a href="${root}spec/">AITaskDefinition spec</a>
+    <a href="${root}skill/">Authoring skill</a>
+    <a href="$repo_url">Source on GitHub</a>
+    <span class="spacer"></span>
+  </footer>
+</div>
+<script src="${root}assets/site.js?v=$assets_v" defer></script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Summarise Notes Folder · AITaskRunner task</title>
+<meta name="description" content="Reads every Markdown and text file at the top of a folder and writes a SUMMARY.md next to them: one paragraph overall, then two sentences per file.">
+<meta property="og:title" content="Summarise Notes Folder · AITaskRunner task">
+<meta property="og:description" content="Reads every Markdown and text file at the top of a folder and writes a SUMMARY.md next to them: one paragraph overall, then two sentences per file.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="../../assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="128x128" href="../../assets/icon-128.png">
+<link rel="apple-touch-icon" href="../../assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../../assets/site.css?v=50229b803f">
+</head>
+<body>
+<div class="sheet">
+  <nav class="nav">
+    <a class="brand" href="../../">
+      <img src="../../assets/icon-128.png" alt="" width="34" height="34">
+      <span><b>AITaskRunner</b><small>Saved tasks for local models</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="../../#why" >Why</a>
+      <a href="../../tasks/" aria-current="page">Tasks</a>
+      <a href="../../spec/" >Spec</a>
+      <a href="../../skill/" >Skill</a>
+      <a href="https://github.com/arunts/AITask">GitHub</a>
+      <a class="btn btn-primary" href="../../downloads/AITaskRunner.dmg">Download</a>
+    </div>
+  </nav>
+
+  <header class="page-head">
+    <div class="crumbs"><a href="../../tasks/">Tasks</a><span>›</span>Summarise Notes Folder</div>
+    <h1>Summarise Notes Folder</h1>
+    <p class="lede">Reads every Markdown and text file at the top of a folder and writes a SUMMARY.md next to them: one paragraph overall, then two sentences per file.</p>
+    <div class="chips" style="margin-top: 16px"><span class="chip var">2 variables</span><a class="chip tag" href="../../tasks/?tag=files">Files &amp; folders</a><a class="chip tag" href="../../tasks/?tag=writing">Writing</a></div>
+  </header>
+
+  <div class="task-layout">
+    <article class="prose">
+      <div class="prompt-label"><h3>System prompt</h3><span class="muted">Sent before the user prompt on every run</span></div>
+      <div class="prompt">You are a concise technical writer. Always read files with <span class="tool">shell__run</span> before summarising; never guess contents. Only run commands that read, plus the single write in the final step. Reply in Markdown.</div>
+
+      <div class="prompt-label"><h3>User prompt</h3><span class="muted">Sent each run with the variables filled in</span></div>
+      <div class="prompt">1. Run <span class="tool">shell__run</span> with: find &quot;<span class="var">{{notes_folder}}</span>&quot; -maxdepth 1 \( -name &#x27;*.md&#x27; -o -name &#x27;*.txt&#x27; \) | head -n <span class="var">{{max_files}}</span>
+2. For each file listed, run <span class="tool">shell__run</span> with: head -c 20000 &quot;&lt;path&gt;&quot;
+3. Write a Markdown summary: a one-paragraph overview, then one bullet per file with its name in bold and two sentences about it.
+4. Save it by running <span class="tool">shell__run</span> with:
+cat &gt; &quot;<span class="var">{{notes_folder}}</span>/SUMMARY.md&quot; &lt;&lt;&#x27;EOF&#x27;
+&lt;the summary&gt;
+EOF
+5. Reply with only the sentence: &quot;Wrote SUMMARY.md covering N files.&quot;</div>
+
+      <h3>Variables</h3>
+      <p class="muted small">The app asks for these before each run. Defaults are pre-filled; the values you last used are remembered.</p>
+      <div class="table-scroll"><table><thead><tr><th>Placeholder</th><th>Type</th><th>Default</th><th>What to enter</th></tr></thead><tbody><tr><td><code class="var-key">{{notes_folder}}</code></td><td>folder</td><td><code>~/Notes</code></td><td>Folder whose .md and .txt files are summarised</td></tr><tr><td><code class="var-key">{{max_files}}</code></td><td>text</td><td><code>10</code></td><td>Stop after this many files</td></tr></tbody></table></div>
+
+
+      <details class="json">
+        <summary>The task file <button class="copy" data-copy="#task-json" type="button">Copy JSON</button></summary>
+        <pre><code id="task-json">{
+  &quot;format&quot;: &quot;AITaskDefinition&quot;,
+  &quot;version&quot;: 1,
+  &quot;task&quot;: {
+    &quot;name&quot;: &quot;Summarise Notes Folder&quot;,
+    &quot;systemPrompt&quot;: &quot;You are a concise technical writer. Always read files with shell__run before summarising; never guess contents. Only run commands that read, plus the single write in the final step. Reply in Markdown.&quot;,
+    &quot;userPrompt&quot;: &quot;1. Run shell__run with: find \&quot;{{notes_folder}}\&quot; -maxdepth 1 \\( -name &#x27;*.md&#x27; -o -name &#x27;*.txt&#x27; \\) | head -n {{max_files}}\n2. For each file listed, run shell__run with: head -c 20000 \&quot;&lt;path&gt;\&quot;\n3. Write a Markdown summary: a one-paragraph overview, then one bullet per file with its name in bold and two sentences about it.\n4. Save it by running shell__run with:\ncat &gt; \&quot;{{notes_folder}}/SUMMARY.md\&quot; &lt;&lt;&#x27;EOF&#x27;\n&lt;the summary&gt;\nEOF\n5. Reply with only the sentence: \&quot;Wrote SUMMARY.md covering N files.\&quot;&quot;,
+    &quot;allowsSteering&quot;: false,
+    &quot;variables&quot;: [
+      {
+        &quot;key&quot;: &quot;notes_folder&quot;,
+        &quot;type&quot;: &quot;folder&quot;,
+        &quot;default&quot;: &quot;~/Notes&quot;,
+        &quot;description&quot;: &quot;Folder whose .md and .txt files are summarised&quot;
+      },
+      {
+        &quot;key&quot;: &quot;max_files&quot;,
+        &quot;default&quot;: &quot;10&quot;,
+        &quot;description&quot;: &quot;Stop after this many files&quot;
+      }
+    ],
+    &quot;tools&quot;: [
+      {
+        &quot;builtin&quot;: &quot;shell&quot;
+      }
+    ]
+  },
+  &quot;mcpServers&quot;: {}
+}
+</code></pre>
+      </details>
+    </article>
+
+    <aside class="aside">
+      <div class="box">
+        <a class="btn btn-primary btn-lg" href="summarise-notes.json" download="summarise-notes.json">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          Download task
+        </a>
+        <span class="btn-note center" style="display:block">summarise-notes.json · 1.3 KB</span>
+      </div>
+    </aside>
+  </div>
+
+
+  <footer class="footer">
+    <span>AITaskRunner for macOS · v1.0</span>
+    <a href="../../tasks/">Task repository</a>
+    <a href="../../spec/">AITaskDefinition spec</a>
+    <a href="../../skill/">Authoring skill</a>
+    <a href="https://github.com/arunts/AITask">Source on GitHub</a>
+    <span class="spacer"></span>
+  </footer>
+</div>
+<script src="../../assets/site.js?v=50229b803f" defer></script>
+</body>
+</html>

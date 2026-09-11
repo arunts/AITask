@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP servers · ai-task-author</title>
+<meta name="description" content="When to reach for an external server, known servers with ready definitions, and how to find others.">
+<meta property="og:title" content="MCP servers · ai-task-author">
+<meta property="og:description" content="When to reach for an external server, known servers with ready definitions, and how to find others.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="../../assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="128x128" href="../../assets/icon-128.png">
+<link rel="apple-touch-icon" href="../../assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../../assets/site.css?v=50229b803f">
+</head>
+<body>
+<div class="sheet">
+  <nav class="nav">
+    <a class="brand" href="../../">
+      <img src="../../assets/icon-128.png" alt="" width="34" height="34">
+      <span><b>AITaskRunner</b><small>Saved tasks for local models</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="../../#why" >Why</a>
+      <a href="../../tasks/" >Tasks</a>
+      <a href="../../spec/" >Spec</a>
+      <a href="../../skill/" aria-current="page">Skill</a>
+      <a href="https://github.com/arunts/AITask">GitHub</a>
+      <a class="btn btn-primary" href="../../downloads/AITaskRunner.dmg">Download</a>
+    </div>
+  </nav>
+
+  <header class="page-head">
+    <div class="crumbs"><a href="../../skill/">Skill</a><span>›</span>MCP servers</div>
+    <h1>MCP servers</h1>
+    <p class="lede">When to reach for an external server, known servers with ready definitions, and how to find others.</p>
+  </header>
+
+  <div class="doc">
+    <nav class="toc" aria-label="On this page">
+      <p class="eyebrow">On this page</p>
+      <ol>
+        <li><a href="#before-writing-any-server-into-a-file">Before writing any server into a file</a></li>
+        <li><a href="#known-servers">Known servers</a></li>
+        <li><a href="#finding-a-server-that-is-not-listed">Finding a server that is not listed</a></li>
+      </ol>
+      <p class="small muted" style="margin-top: 16px">Rendered from <code>skills/ai-task-author/references/mcp-servers.md</code> in the repository.</p>
+    </nav>
+    <article class="prose">
+<p>Use this when the built-in Shell pack cannot do the job (web, browser, an online service, a database). Work down the ladder and stop at the first rung that fits:</p>
+<ol>
+<li><strong>Built-in shell</strong> (<code>references/builtin-tools.md</code>). It covers more than people expect: <code>shell__run</code> can call <code>curl</code>, <code>gh</code>, <code>git</code>, <code>ffmpeg</code>, <code>sqlite3</code>, <code>osascript</code>.</li>
+<li><strong>Servers the user already has</strong> in Settings › Tools. Ask; reusing one means no new install and the task can reference it by its existing slug.</li>
+<li><strong>Known servers</strong> in the table below.</li>
+<li><strong>Search</strong> for one (procedure at the end).</li>
+<li><strong>No fit</strong>: say so plainly and offer the closest shell-based version instead of inventing a server.</li>
+</ol>
+<h2 id="before-writing-any-server-into-a-file">Before writing any server into a file</h2>
+<ul>
+<li><strong>Runtime</strong>: <code>npx -y &lt;pkg&gt;</code> needs Node.js, <code>uvx &lt;pkg&gt;</code> needs uv, <code>docker run</code> needs Docker. Say which one the user must have installed.</li>
+<li><strong>Verify it exists</strong>. Package names churn. Run <code>npm view &lt;pkg&gt; version</code> or <code>uvx --from &lt;pkg&gt; &lt;command&gt; --help</code>, or open the repo README, before trusting a name from memory (including the table below).</li>
+<li><strong>Get the tool names right</strong>. Take them from the README. If unsure, tell the user to add the server in Settings › Tools, then open the wizard&#x27;s tool picker, which lists the live tools. Explicit <code>tools</code> lists beat <code>null</code> for small models; keep it to 3–8 tools.</li>
+<li><strong>Secrets stay out of the file</strong>. Name the env variable or header the server needs and tell the user to add it in Settings › Tools after import. Use <code>REPLACE_ME</code> only where a key is structurally required.</li>
+<li><strong>Remote (HTTP) servers</strong>: The app sends static headers only. A server that needs an OAuth login flow will not work; prefer its stdio package or a bearer token.</li>
+<li><strong>Small local models</strong> pick tools badly beyond a dozen. A server that exposes 30 tools needs an explicit list and a prompt that names the one or two to call.</li>
+</ul>
+<h2 id="known-servers">Known servers</h2>
+<p>Checked September 2026. Names drift; verify before use. Definitions are in the <code>mcpServers</code> shape.</p>
+<div class="table-scroll"><table><thead><tr><th>Job</th><th>Definition</th><th>Needs</th><th>Tools to name in the prompt</th></tr></thead><tbody><tr><td>Fetch a web page as text</td><td><code>&quot;fetch&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;uvx&quot;, &quot;args&quot;: [&quot;mcp-server-fetch&quot;]}</code></td><td>uv</td><td><code>fetch__fetch</code> (args <code>url</code>, <code>max_length</code>, <code>start_index</code>, <code>raw</code>)</td></tr><tr><td>Git history and diffs</td><td><code>&quot;git&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;uvx&quot;, &quot;args&quot;: [&quot;mcp-server-git&quot;, &quot;--repository&quot;, &quot;/path/to/repo&quot;]}</code></td><td>uv</td><td><code>git__git_status</code>, <code>git__git_log</code>, <code>git__git_diff</code>, <code>git__git_diff_unstaged</code>, <code>git__git_show</code> (read-only set)</td></tr><tr><td>Current time, time zones</td><td><code>&quot;time&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;uvx&quot;, &quot;args&quot;: [&quot;mcp-server-time&quot;]}</code></td><td>uv</td><td><code>time__get_current_time</code>, <code>time__convert_time</code></td></tr><tr><td>Persistent notes across runs (knowledge graph in a file)</td><td><code>&quot;memory&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@modelcontextprotocol/server-memory&quot;]}</code></td><td>Node; optional env <code>MEMORY_FILE_PATH</code></td><td><code>memory__create_entities</code>, <code>memory__add_observations</code>, <code>memory__search_nodes</code>, <code>memory__read_graph</code></td></tr><tr><td>Drive a real browser</td><td><code>&quot;browser&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;@playwright/mcp@latest&quot;]}</code></td><td>Node; opens a Chromium window</td><td><code>browser__browser_navigate</code>, <code>browser__browser_snapshot</code>, <code>browser__browser_click</code>, <code>browser__browser_type</code>, <code>browser__browser_take_screenshot</code>, <code>browser__browser_close</code> (about 25 in total; list explicitly)</td></tr><tr><td>Web search</td><td><code>&quot;brave&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@brave/brave-search-mcp-server&quot;]}</code></td><td>Node; env <code>BRAVE_API_KEY</code> (free tier exists)</td><td><code>brave__brave_web_search</code>, <code>brave__brave_local_search</code></td></tr><tr><td>GitHub issues, PRs, code</td><td><code>&quot;github&quot;: {&quot;type&quot;: &quot;http&quot;, &quot;url&quot;: &quot;https://api.githubcopilot.com/mcp/&quot;, &quot;headers&quot;: {&quot;Authorization&quot;: &quot;Bearer REPLACE_ME&quot;}}</code></td><td>Personal access token</td><td><code>github__list_issues</code>, <code>github__get_issue</code>, <code>github__search_issues</code>, <code>github__get_pull_request</code>, <code>github__get_file_contents</code>, <code>github__search_code</code> (40+ available; list explicitly). <code>gh</code> via <code>shell__run</code> is often simpler.</td></tr><tr><td>Notion pages and databases</td><td><code>&quot;notion&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@notionhq/notion-mcp-server&quot;]}</code></td><td>Node; env <code>OPENAPI_MCP_HEADERS</code> = <code>{&quot;Authorization&quot;: &quot;Bearer REPLACE_ME&quot;, &quot;Notion-Version&quot;: &quot;2022-06-28&quot;}</code></td><td>Tool names mirror the Notion API (<code>notion__API-post-search</code>, <code>notion__API-retrieve-a-page</code>); confirm in the picker</td></tr><tr><td>Up-to-date library documentation</td><td><code>&quot;context7&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@upstash/context7-mcp&quot;]}</code></td><td>Node</td><td><code>context7__resolve-library-id</code>, then <code>context7__get-library-docs</code></td></tr><tr><td>Apple Notes, Reminders, Calendar, Mail, Messages, Contacts</td><td><code>&quot;apple&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;apple-mcp&quot;]}</code></td><td>Node; macOS Automation permission prompts on first use; community project</td><td><code>apple__notes</code>, <code>apple__reminders</code>, <code>apple__calendar</code>, <code>apple__mail</code>, <code>apple__messages</code>, <code>apple__contacts</code></td></tr><tr><td>Query a SQLite file</td><td><code>&quot;sqlite&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;uvx&quot;, &quot;args&quot;: [&quot;mcp-server-sqlite&quot;, &quot;--db-path&quot;, &quot;/path/to/file.db&quot;]}</code></td><td>uv; upstream archived but installable</td><td><code>sqlite__list_tables</code>, <code>sqlite__describe_table</code>, <code>sqlite__read_query</code> (avoid <code>write_query</code> unless asked)</td></tr><tr><td>Structured file tools instead of shell commands (<code>read_file</code>, <code>edit_file</code>, <code>directory_tree</code>), confined to listed folders</td><td><code>&quot;filesystem&quot;: {&quot;type&quot;: &quot;stdio&quot;, &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@modelcontextprotocol/server-filesystem&quot;, &quot;/allowed/dir&quot;]}</code></td><td>Node</td><td>Prefer <code>shell__run</code>; use this only for <code>filesystem__edit_file</code> or <code>filesystem__directory_tree</code></td></tr></tbody></table></div>
+<p>Slug reminder: the key becomes the slug (<code>brave</code> → <code>brave__brave_web_search</code>). Keep keys lowercase and short, since the model has to type them.</p>
+<h2 id="finding-a-server-that-is-not-listed">Finding a server that is not listed</h2>
+<ol>
+<li><p><strong>Search</strong>, in this order, with the web tools you have (WebSearch / WebFetch) or by asking the user to paste what they find:</p>
+<ul>
+<li>Official registry: https://registry.modelcontextprotocol.io (API: <code>https://registry.modelcontextprotocol.io/v0/servers?search=&lt;term&gt;</code>)</li>
+<li>Reference and vendor list: https://github.com/modelcontextprotocol/servers (README sections &quot;Reference servers&quot;, &quot;Official integrations&quot;, &quot;Community&quot;)</li>
+<li>Package indexes: <code>npm search mcp-server &lt;term&gt;</code>, PyPI <code>mcp-server-&lt;term&gt;</code>, GitHub search <code>&quot;mcp server&quot; &lt;term&gt;</code></li>
+</ul></li>
+<li><strong>Prefer</strong> a server published by the service&#x27;s own vendor, then the modelcontextprotocol reference set, then a community server with recent commits and a README that lists its tools. Prefer stdio over remote unless the remote server only needs a bearer token.</li>
+<li><strong>Verify</strong> the package installs (<code>npm view</code> / <code>uvx --help</code>) and copy the exact tool names from its README.</li>
+<li><strong>Write</strong> the definition in the same shape as the table, with an explicit <code>tools</code> list, and tell the user what to install and which secret to add in Settings › Tools.</li>
+<li><strong>Nothing suitable</strong>: say so. Offer the closest alternative through <code>shell__run</code> (a CLI such as <code>gh</code>, <code>curl</code> against the service&#x27;s REST API, <code>osascript</code> for Apple apps) and note that each command will ask for approval.</li>
+</ol>
+
+    </article>
+  </div>
+
+
+  <footer class="footer">
+    <span>AITaskRunner for macOS · v1.0</span>
+    <a href="../../tasks/">Task repository</a>
+    <a href="../../spec/">AITaskDefinition spec</a>
+    <a href="../../skill/">Authoring skill</a>
+    <a href="https://github.com/arunts/AITask">Source on GitHub</a>
+    <span class="spacer"></span>
+  </footer>
+</div>
+<script src="../../assets/site.js?v=50229b803f" defer></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "format": "AITaskDefinition",
+  "version": 1,
+  "task": {
+    "name": "Summarise Notes Folder",
+    "systemPrompt": "You are a concise technical writer. Always read files with shell__run before summarising; never guess contents. Only run commands that read, plus the single write in the final step. Reply in Markdown.",
+    "userPrompt": "1. Run shell__run with: find \"{{notes_folder}}\" -maxdepth 1 \\( -name '*.md' -o -name '*.txt' \\) | head -n {{max_files}}\n2. For each file listed, run shell__run with: head -c 20000 \"<path>\"\n3. Write a Markdown summary: a one-paragraph overview, then one bullet per file with its name in bold and two sentences about it.\n4. Save it by running shell__run with:\ncat > \"{{notes_folder}}/SUMMARY.md\" <<'EOF'\n<the summary>\nEOF\n5. Reply with only the sentence: \"Wrote SUMMARY.md covering N files.\"",
+    "allowsSteering": false,
+    "variables": [
+      {
+        "key": "notes_folder",
+        "type": "folder",
+        "default": "~/Notes",
+        "description": "Folder whose .md and .txt files are summarised"
+      },
+      {
+        "key": "max_files",
+        "default": "10",
+        "description": "Stop after this many files"
+      }
+    ],
+    "tools": [
+      {
+        "builtin": "shell"
+      }
+    ]
+  },
+  "mcpServers": {}
+}

@@ -1,0 +1,100 @@
+  <header class="page-head">
+    <p class="eyebrow">Agent skill</p>
+    <h1>ai-task-author</h1>
+    <p class="lede">A skill that teaches Claude Code, Codex and other coding agents to turn “I want a task that…” into an AITaskDefinition file. It interviews you briefly, writes the prompts, picks built-in or MCP tools, validates the file, and tells you how to import it.</p>
+    <div class="hero-actions" style="margin-top: 22px">
+      <a class="btn btn-primary btn-lg" href="${root}downloads/ai-task-author.zip" download>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        Download the skill
+      </a>
+      <a class="btn btn-outline btn-lg" href="$repo_url/tree/main/skills/ai-task-author">View on GitHub</a>
+      <span class="muted small">ai-task-author.zip · $skill_zip_size</span>
+    </div>
+  </header>
+
+  <div class="doc">
+    <nav class="toc" aria-label="On this page">
+      <p class="eyebrow">On this page</p>
+      <ol>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#try">Try it</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#inside">What is inside</a></li>
+        <li><a href="#validate">The validator</a></li>
+      </ol>
+    </nav>
+
+    <article class="prose">
+      <h2 id="install">Install</h2>
+      <p>The skill is a folder with a <code>SKILL.md</code> at its root, the layout the <a href="https://agentskills.io">Agent Skills</a> format defines and that Claude Code, Codex and a growing list of agents load. Unzip it where your agent looks for skills, start a new session, and the agent picks it up whenever a task for AITaskRunner comes up.</p>
+      <div class="install-tabs">
+        <div class="install">
+          <h3>Claude Code</h3>
+          <p>Personal skills live in <code>~/.claude/skills/</code>; project skills in <code>.claude/skills/</code> inside the repository.</p>
+<pre><code>mkdir -p ~/.claude/skills
+unzip ~/Downloads/ai-task-author.zip -d ~/.claude/skills/</code></pre>
+        </div>
+        <div class="install">
+          <h3>Codex</h3>
+          <p>Personal skills live in <code>~/.codex/skills/</code>; project skills in <code>.codex/skills/</code>. Recent versions also read <code>.agents/skills/</code>. Type <code>/skills</code> to confirm it loaded.</p>
+<pre><code>mkdir -p ~/.codex/skills
+unzip ~/Downloads/ai-task-author.zip -d ~/.codex/skills/</code></pre>
+        </div>
+        <div class="install">
+          <h3>Any other agent</h3>
+          <p>If it reads the Agent Skills format (Cursor, Gemini CLI and others do), point it at the folder. Otherwise paste <a href="${root}skill/instructions/">the contents of SKILL.md</a> into your instructions file, such as <code>AGENTS.md</code>, and tell the agent the references folder is beside it.</p>
+<pre><code>unzip ai-task-author.zip -d ./skills/
+# then in AGENTS.md: "For AITaskRunner tasks, follow skills/ai-task-author/SKILL.md"</code></pre>
+        </div>
+      </div>
+      <p>From a checkout of the repository, a symlink keeps it current: <code>ln -s "…/AITaskRunner/skills/ai-task-author" ~/.claude/skills/ai-task-author</code>. The scripts need only Python 3; nothing else is installed.</p>
+
+      <h2 id="try">Try it</h2>
+      <p>Say what the task should do each time it runs. The skill asks only the questions that change the file, and suggests a default for each so “looks good” is a complete answer.</p>
+      <ul>
+        <li>“Make me an AITaskRunner task that summarises the PDFs in a folder each week.”</li>
+        <li>“I want a task that reads my staged git diff and drafts a commit message. Never let it commit.”</li>
+        <li>“Write a task for AITaskRunner that fetches a URL and gives me three bullets. It can use an MCP server if it has to.”</li>
+        <li>“Turn this prompt I keep pasting into a task with variables for the topic and the tone.”</li>
+      </ul>
+      <p>You get a <code>&lt;Task Name&gt;.json</code> and the validator's output.</p>
+
+      <h2 id="how">How it works</h2>
+      <ol>
+        <li><strong>Understand the task.</strong> Restate in one sentence what the task produces, then work out what changes per run (variables), what the model has to touch (tools), and whether it needs to check in mid-run (interactive).</li>
+        <li><strong>Ask only what changes the file.</strong> Inputs and their defaults, which folders it may read or write, the output shape, whether it may ask questions, and which MCP server if one is needed. All in one message.</li>
+        <li><strong>Write the prompts.</strong> System prompt as the standing rules with Always / Never / Only rules; user prompt as numbered steps with the exact commands and tool names. Short, because small local models and Apple's 4K window reward it.</li>
+        <li><strong>Pick tools.</strong> The built-in shell first. An MCP server only when the shell cannot do it well, following a ladder that ends with “say no and offer a shell fallback” rather than inventing a server. Never a secret in the file.</li>
+        <li><strong>Write, validate, deliver.</strong> Pretty-printed JSON, the validator run until it exits 0, a short summary, and the import steps.</li>
+      </ol>
+      <p>The skill's full instructions are on <a href="${root}skill/instructions/">one page</a>.</p>
+
+      <h2 id="inside">What is inside</h2>
+      <ul class="tree">
+        <li>ai-task-author/</li>
+        <li>├── <a href="${root}skill/instructions/">SKILL.md</a> <span>— the workflow the agent follows</span></li>
+        <li>├── README.md <span>— install notes and layout</span></li>
+        <li>├── references/</li>
+        <li>│   ├── <a href="${root}skill/task-format/">task-format.md</a> <span>— every field of the file format</span></li>
+        <li>│   ├── <a href="${root}skill/builtin-tools/">builtin-tools.md</a> <span>— the Shell tool, file recipes, ask_user</span></li>
+        <li>│   └── <a href="${root}skill/mcp-servers/">mcp-servers.md</a> <span>— when and how to add an MCP server; known servers</span></li>
+        <li>├── scripts/</li>
+        <li>│   ├── validate_task.py <span>— checks a file the way the importer does</span></li>
+        <li>│   └── list_builtin_tools.py <span>— prints the live built-in tool list from the app's sources</span></li>
+        <li>└── assets/examples/ <span>— four complete task files, also in the <a href="${root}tasks/">repository</a></span></li>
+      </ul>
+
+      <h2 id="validate">The validator</h2>
+      <p>A standard-library Python script that mirrors the app's importer: the same errors that make the app refuse a file, plus warnings for things that import fine but go wrong at run time, such as a placeholder with no variable or a prompt that names a tool that is not attached. It prints a preview of the task as the app would show it.</p>
+<pre><code>python3 ~/.claude/skills/ai-task-author/scripts/validate_task.py "Summarise Notes.json"
+✓ Summarise Notes.json: importable (version 1)
+  Name:       Summarise Notes Folder
+  Traits:     Tools · 2 variables
+  Variables:
+    {{notes_folder}} (folder, default "~/Notes") — Folder whose .md and .txt files are summarised
+    {{max_files}} (text, default "10") — Stop after this many files
+  Tools:
+    Shell (shell__…): all tools (run)</code></pre>
+      <p>Exit code 0 means the app will import it; 1 lists the errors; warnings never block. Use <code>-</code> to read from stdin.</p>
+    </article>
+  </div>

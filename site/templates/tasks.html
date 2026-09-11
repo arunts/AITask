@@ -1,0 +1,45 @@
+  <header class="page-head">
+    <p class="eyebrow">Tasks</p>
+    <h1>Task repository</h1>
+    <p class="lede">Each task is one <code>.json</code> file. Download it and import it into AITaskRunner. Servers a task needs are added for you.</p>
+  </header>
+
+  <div class="wrap" style="padding-bottom: clamp(48px, 7vw, 88px)">
+    <div class="filters">
+      <label class="search">
+        <span class="visually-hidden">Search tasks</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input id="task-search" type="search" placeholder="Search by name, description or tool…" autocomplete="off">
+      </label>
+      <div class="filter-row">
+        <span class="label">Needs</span>
+        <button class="chip filter" data-kind="needs" data-value="app" aria-pressed="false">App</button>
+        <button class="chip filter" data-kind="needs" data-value="mcp" aria-pressed="false">An MCP server</button>
+      </div>
+      <div class="filter-row">
+        <span class="label">Mode</span>
+        <button class="chip filter" data-kind="interactive" data-value="1" aria-pressed="false">Interactive</button>
+      </div>
+      <div class="filter-row">
+        <span class="label">About</span>
+$tag_filters
+        <button id="filter-clear" class="filter-clear" hidden>Clear filters</button>
+      </div>
+    </div>
+
+    <div class="count" id="task-count">$task_count $task_noun</div>
+    <div class="grid" id="task-list">
+$task_cards
+    </div>
+    <div class="empty" id="task-empty" hidden>No task matches those filters.</div>
+
+    <hr>
+    <div class="split">
+      <div>
+        <h3>Want one that is not here?</h3>
+        <p class="muted">Install the <a href="${root}skill/">ai-task-author skill</a> and ask your coding agent for it, or write one by hand with the <a href="${root}spec/">specification</a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <script id="task-data" type="application/json">$task_json</script>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Launch without a Dock icon; AppSettings.applyActivationPolicy switches to a regular app when the menu bar icon is off. -->
+	<key>LSUIElement</key>
+	<true/>
+	<!-- Shown when a Shell command sends Apple Events (osascript) to another app. -->
+	<key>NSAppleEventsUsageDescription</key>
+	<string>A task is running a command that controls another app.</string>
+	<!-- Local model endpoints (LM Studio, Ollama, llama.cpp…) are plain HTTP on localhost or the LAN. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

@@ -1,0 +1,24 @@
+{
+  "format": "AITaskDefinition",
+  "version": 1,
+  "task": {
+    "name": "Free Up Disk Space",
+    "systemPrompt": "You help a Mac user reclaim disk space safely.\nAlways measure before proposing anything. Never run rm, rmdir or anything that deletes outright; the only way to remove an item is to move it to the Trash with shell__run: osascript -e 'tell application \"Finder\" to delete POSIX file \"/full/path\"'. Always call ask_user and wait for a yes before trashing anything. Reply in short Markdown.",
+    "userPrompt": "1. Run shell__run with: du -sh {{scan_folder}}/* 2>/dev/null | sort -h | tail -n 15\n2. Show the user the largest entries as a table with size and path.\n3. Call ask_user with one question: which of these paths may go to the Trash (comma-separated), or \"none\".\n4. For each path the user named, run shell__run with: osascript -e 'tell application \"Finder\" to delete POSIX file \"<full path>\"'\n5. Finish with one line: how many items were trashed and the total size reclaimed.",
+    "allowsSteering": true,
+    "variables": [
+      {
+        "key": "scan_folder",
+        "type": "folder",
+        "default": "~/Library/Caches",
+        "description": "Folder to measure; only its direct children are listed"
+      }
+    ],
+    "tools": [
+      {
+        "builtin": "shell"
+      }
+    ]
+  },
+  "mcpServers": {}
+}
