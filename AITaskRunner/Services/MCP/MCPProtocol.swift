@@ -25,9 +25,26 @@ nonisolated struct MCPTool: Identifiable, Hashable, Sendable, Codable {
     }
 }
 
+/// One image item from a tool result, exactly as the server sent it (MCP `image` content or an
+/// embedded resource with an `image/*` blob).
+nonisolated struct MCPImage: Sendable, Hashable {
+    var mimeType: String
+    var base64: String
+
+    /// Size of the decoded image, without decoding it.
+    var decodedByteCount: Int { base64.utf8.count / 4 * 3 }
+}
+
 nonisolated struct MCPToolResult: Sendable {
     var text: String
     var isError: Bool
+    var images: [MCPImage] = []
+
+    /// The text plus a note about any images, for models that cannot receive image input.
+    var textDescribingImages: String {
+        guard !images.isEmpty else { return text }
+        return text + "\n[\(images.count) image(s) returned; this model cannot see images]"
+    }
 }
 
 nonisolated struct MCPServerInfo: Sendable, Hashable {

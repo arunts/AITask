@@ -50,6 +50,7 @@ struct TaskFileFormatView: View {
             "systemPrompt": "You are a concise technical writer. Reply in Markdown.",
             "userPrompt": "1. Run `ls {{notes_folder}}/*.md` with shell__run to find the notes.\n2. Read each file with `cat`.\n3. Write a Markdown summary to {{notes_folder}}/SUMMARY.md using `cat > file <<'EOF'`.",
             "allowsSteering": false,
+            "requires": ["tools"],
             "variables": [
               { "key": "notes_folder", "type": "folder", "default": "~/Notes", "description": "Folder to summarise" },
               { "key": "topics", "type": "list", "options": ["weather", "sport"], "description": "Topics to cover" }
@@ -79,6 +80,7 @@ struct TaskFileFormatView: View {
         | `systemPrompt` | no | The model's standing brief: who it is, rules it must follow, how to answer. Sent before every run. |
         | `userPrompt` | **yes** | The job itself. Can mention variables as `{{key}}` and tools by name. |
         | `allowsSteering` | no | `true` makes the task interactive: the run window gets a chat box and the model gets an `ask_user` tool so it can ask you questions. Default `false`. |
+        | `requires` | no | What the model must support, as a list of `"tools"`, `"vision"` and `"thinking"`. Tool calling is assumed whenever tools are attached or the task is interactive, so it need not be listed. See Model requirements. |
         | `variables` | no | Values you fill in before each run. See Variables. |
         | `tools` | no | What the model may call. See Tools. |
 
@@ -109,11 +111,23 @@ struct TaskFileFormatView: View {
 
         | Field | What it is |
         |---|---|
-        | `builtin` | A pack that ships inside the app. Today that is `"shell"`. Nothing to install. |
+        | `builtin` | A pack that ships inside the app: `"shell"` or `"context"`. Nothing to install. |
         | `server` | The short name (slug) of an MCP server defined under `mcpServers`, or one you already have in Settings › Tools. |
         | `tools` | The exact tools to allow, as a list. `null` or leaving it out means every tool the source offers, including ones added later. Fewer tools help small models choose well. |
 
         The model sees each tool as `source__tool`, for example `shell__run` or `fetch__fetch`. Using those exact names in the prompts is the most reliable way to get a small model to call the right one.
+
+        ## Model requirements
+
+        A task can say what the model must be able to do, so it is never run on one that cannot:
+
+        | Name | Means |
+        |---|---|
+        | `tools` | The model can call tools. Assumed whenever `tools` is not empty or `allowsSteering` is `true`. |
+        | `vision` | The model accepts images, so it sees the images tools return instead of a text placeholder. |
+        | `thinking` | The model reasons before it answers. Only reasoning models are offered. |
+
+        The app learns what each model supports from its server (Ollama reports all three; LM Studio and llama.cpp report vision) and from runs. A model known to lack a requirement is marked in the model picker and Run is turned off for it; a model whose server says nothing runs anyway, with a note in the transcript. A name in `requires` this version does not know is ignored with a warning when importing.
 
         ## Built-in tools
 
@@ -138,6 +152,10 @@ struct TaskFileFormatView: View {
 
         - `command` and `args` run a program; `env` can add environment variables.
         - `url` connects to a remote server; `headers` can add request headers.
+
+        ### How tool results reach the model
+
+        Text content is sent as the tool result (cut at about 60 000 characters). Images a server returns as MCP image content (PNG, JPEG, WebP, GIF) go to an OpenAI-compatible vision model as `image_url` parts in a follow-up user message right after the tool result, whose text keeps a placeholder such as `[image 1: image/png]`. A model without vision gets the placeholder and a note, and the run continues text-only. The Apple on-device model never receives images. Tool images show as thumbnails under the tool call in the run window.
         - Keep API keys out of shared files. Leave `env` and `headers` empty and add them in Settings › Tools after importing.
         - If you already have a server with the same slug, the app reuses yours and ignores the definition in the file.
 

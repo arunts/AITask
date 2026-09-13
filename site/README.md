@@ -23,13 +23,34 @@ python3 site/build.py --check  # only validates the task catalog
 Rebuild and commit `docs/` after changing anything under `site/` or `skills/ai-task-author/`
 (the skill is zipped into `docs/downloads/` and its Markdown is rendered under `docs/skill/`).
 
-## Add a task
+## Add or update a task
 
-1. Put the task file in `site/tasks/<slug>.json`. The slug becomes the URL (`/tasks/<slug>/`)
-   and the download name.
-2. Add an entry to `site/tasks/catalog.json`: `file`, a one- or two-sentence `description`,
-   `tags` (keys from `categories`), and optionally `"featured": true` to show it on the landing page.
-3. Run the build. Every task is validated with the skill's `validate_task.py`; an error aborts the build.
+Tasks are kept wherever you author them; the site holds a copy plus a catalog entry. One command does both:
+
+```bash
+python3 site/build.py add ~/path/to/"Find PII in Folder.json" \
+    --description "One or two sentences for the card." --tags files,productivity --featured
+python3 site/build.py            # then rebuild
+```
+
+- The slug (URL `/tasks/<slug>/` and download name) comes from the task name; override with `--slug`.
+- The file is validated with the skill's `validate_task.py` first; an error means nothing is written.
+- `--tags` are keys from `categories` in `catalog.json`; `--featured` puts the task on the landing page
+  (the first four featured tasks are shown), `--no-featured` takes it off.
+- The source path is recorded in the catalog entry (`"source"`, written with `~`), so the copy can be
+  refreshed later.
+
+After editing a task where it lives:
+
+```bash
+python3 site/build.py sync       # re-copies every task whose source changed (each is validated first)
+python3 site/build.py list       # shows every task, its tags, and whether the copy is in sync
+python3 site/build.py            # rebuild
+```
+
+Running `add` again on a task that is already in the catalog refreshes its copy and only changes the
+description, tags or featured flag when you pass them. The build itself prints a note for any copy
+that no longer matches its source. To drop a task, delete its file and its catalog entry.
 
 Tool chips, variable counts, "needs" (nothing / shell / MCP) and the interactive flag are derived from the file.
 

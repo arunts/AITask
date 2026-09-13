@@ -29,6 +29,8 @@ final class RunBlock: Identifiable {
     var toolName = ""
     var toolArguments = ""
     var toolResult: String?
+    /// Images the tool returned, shown as thumbnails in the transcript.
+    var toolImages: [MCPImage] = []
     var toolIsError = false
     var isStreaming = false
     var approval: Approval?

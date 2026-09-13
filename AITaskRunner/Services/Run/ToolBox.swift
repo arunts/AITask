@@ -60,7 +60,12 @@ final class ToolBox {
             }
             do {
                 let connection = try await registry.ensureConnected(id: serverID)
-                let tools = await connection.tools
+                var tools = await connection.tools
+                if let wanted = attachment.toolNames, wanted.contains(where: { name in !tools.contains { $0.name == name } }) {
+                    // The cached list dates from the first connect; a tool added since is picked up without a reconnect.
+                    await registry.refreshTools(id: serverID)
+                    tools = await connection.tools
+                }
                 let selected = tools.filter { attachment.includes($0.name) }
                 if let wanted = attachment.toolNames {
                     let missing = wanted.filter { name in !tools.contains { $0.name == name } }
@@ -76,6 +81,12 @@ final class ToolBox {
             }
         }
         return ToolBox(entries: entries, includesAskUser: task.allowsSteering, registry: registry, runner: runner)
+    }
+
+    /// The id the model uses for the built-in context-clearing tool, when the task attaches it. The engine
+    /// handles that call itself; `call` never runs it.
+    var contextClearName: String? {
+        entries.first { $0.pack == .context && $0.tool.name == ContextToolPack.clearToolName }?.id
     }
 
     var serverNames: [String] {
@@ -115,11 +126,16 @@ final class ToolBox {
         return definitions
     }
 
-    /// Foundation Models tools. Tools whose schema cannot be expressed are reported in `skipped`.
+    /// Foundation Models tools. Tools whose schema cannot be expressed, and the context-clearing tool (the
+    /// framework owns the session's transcript), are reported in `skipped`.
     func foundationTools(maxResultCharacters: Int) -> (tools: [any Tool], skipped: [String]) {
         var tools: [any Tool] = []
         var skipped: [String] = []
         for entry in entries {
+            if entry.pack == .context {
+                skipped.append(entry.id)
+                continue
+            }
             do {
                 let root = SchemaConverter.dynamicSchema(from: entry.tool.inputSchema, name: entry.id)
                 let schema = try GenerationSchema(root: root, dependencies: [])
@@ -128,7 +144,7 @@ final class ToolBox {
                     description: entry.tool.description ?? "MCP tool \(entry.tool.name)",
                     parameters: schema,
                     handler: { [self] json in
-                        await self.call(name: entry.id, argumentsJSON: json, maxResultCharacters: maxResultCharacters).text
+                        await self.call(name: entry.id, argumentsJSON: json, maxResultCharacters: maxResultCharacters).textDescribingImages
                     }
                 ))
             } catch {
@@ -146,7 +162,7 @@ final class ToolBox {
                     description: Self.askUserDefinition["function"]?["description"]?.string ?? "",
                     parameters: schema,
                     handler: { [self] json in
-                        await self.call(name: Self.askUserName, argumentsJSON: json, maxResultCharacters: maxResultCharacters).text
+                        await self.call(name: Self.askUserName, argumentsJSON: json, maxResultCharacters: maxResultCharacters).textDescribingImages
                     }
                 ))
             }
@@ -204,6 +220,7 @@ final class ToolBox {
             let settings = registry.builtinSettings
             switch pack {
             case .shell: result = await ShellToolPack.call(entry.tool.name, arguments: arguments, settings: settings)
+            case .context: result = MCPToolResult(text: "\(name) is handled by the run engine and is not available on this model.", isError: true)
             }
         } else {
             do {
@@ -218,8 +235,29 @@ final class ToolBox {
             let overflow = result.text.count - maxResultCharacters
             result.text = String(result.text.prefix(maxResultCharacters)) + "\n… [truncated \(overflow) characters]"
         }
+        Self.applyImageBudget(to: &result)
         if let block { runner?.finishToolCall(block, result: result) }
         return result
+    }
+
+    /// Decoded bytes of image data one tool result may carry to the model. Images are never cut by characters.
+    static let imageBudgetBytes = 24 * 1024 * 1024
+
+    /// Keeps images in order until the budget is spent; the first one that does not fit and every later one
+    /// are dropped, and the text says how many.
+    nonisolated static func applyImageBudget(to result: inout MCPToolResult, budget: Int = imageBudgetBytes) {
+        var used = 0
+        var kept: [MCPImage] = []
+        for image in result.images {
+            let bytes = image.decodedByteCount
+            guard used + bytes <= budget else { break }
+            used += bytes
+            kept.append(image)
+        }
+        let dropped = result.images.count - kept.count
+        guard dropped > 0 else { return }
+        result.images = kept
+        result.text += "\n[\(dropped) image(s) dropped: result exceeded the image budget]"
     }
 }
 

@@ -27,7 +27,7 @@ final class FoundationEngine: RunEngine {
         self.generationOptions = options.generationOptions
         let (tools, skipped) = toolbox.foundationTools(maxResultCharacters: 4_000)
         if !skipped.isEmpty {
-            runner.addNotice("Skipped tools whose schema the Apple model cannot use: \(skipped.joined(separator: ", "))")
+            runner.addNotice("Skipped tools the Apple model cannot use: \(skipped.joined(separator: ", "))")
         }
         let trimmed = instructions.trimmingCharacters(in: .whitespacesAndNewlines)
         let instructionText: String? = trimmed.isEmpty ? nil : trimmed

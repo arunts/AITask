@@ -10,6 +10,8 @@ enum StatusTone {
     case good
     case warning
     case bad
+    /// Nobody has an answer yet (a capability the endpoint does not report).
+    case unknown
 
     var symbol: String {
         switch self {
@@ -18,6 +20,7 @@ enum StatusTone {
         case .good: return "checkmark.circle.fill"
         case .warning: return "exclamationmark.circle.fill"
         case .bad: return "xmark.circle.fill"
+        case .unknown: return "questionmark.circle.fill"
         }
     }
 
@@ -28,6 +31,7 @@ enum StatusTone {
         case .good: return .green
         case .warning: return .orange
         case .bad: return .red
+        case .unknown: return .orange
         }
     }
 }
@@ -98,6 +102,75 @@ extension TaskRunner.Status {
     }
 }
 
+extension CapabilitySupport {
+    var tone: StatusTone {
+        switch self {
+        case .supported: return .good
+        case .unsupported: return .bad
+        case .unknown: return .unknown
+        }
+    }
+}
+
+// MARK: - Model capabilities
+
+/// One capability of one model: its status and where the answer came from.
+struct CapabilityStatusLabel: View {
+    @Environment(ProviderHub.self) private var providers
+
+    let choice: ModelChoice
+    let capability: ModelCapability
+
+    private var entry: CapabilityReport.Entry { providers.knownCapabilities(for: choice)[capability] }
+
+    /// "reported by Ollama", "found during a run"; nothing when unknown or fixed (Apple).
+    private var sourceText: String? {
+        guard !choice.isApple, let source = entry.source else { return nil }
+        return source == "a run" ? "found during a run" : "reported by \(source)"
+    }
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            StatusLabel(entry.support.label, tone: entry.support.tone)
+            if let sourceText {
+                Text(sourceText)
+                    .textStyle(.subheadline)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+}
+
+/// Everything known about an endpoint model's capabilities in one line ("tool calling · vision"). For Settings › Models.
+struct ModelCapabilitiesRow: View {
+    @Environment(ProviderHub.self) private var providers
+
+    let choice: ModelChoice
+
+    private var report: CapabilityReport { providers.knownCapabilities(for: choice) }
+
+    private var summary: String {
+        let supported = ModelCapability.allCases.filter { report[$0].support == .supported }
+        let unsupported = ModelCapability.allCases.filter { report[$0].support == .unsupported }
+        if supported.isEmpty && unsupported.isEmpty { return "capabilities not reported" }
+        var parts = supported.map { $0.label.lowercased() }
+        if parts.isEmpty { parts = unsupported.map(\.negated) }
+        return parts.joined(separator: " · ")
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(choice.displayName)
+                .textStyle(.callout, design: .monospaced)
+                .textSelection(.enabled)
+            Text(summary)
+                .textStyle(.callout)
+                .foregroundStyle(report.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
+                .lineLimit(1)
+        }
+    }
+}
+
 // MARK: - Context gauge
 
 /// Shared formatting and thresholds for "how full is the context" figures.
@@ -156,10 +229,19 @@ struct ContextUsageLabel: View {
 /// `unavailable` is a remembered choice that is not offered right now; it stays selectable so it is not silently replaced.
 struct ModelPickerOptions: View {
     @Environment(AppSettings.self) private var settings
+    @Environment(ProviderHub.self) private var providers
 
     let choices: [ModelChoice]
     var unavailable: String? = nil
     var noneTitle: String? = nil
+    /// What the task needs; models known to lack any of it are labelled, e.g. "qwen3:8b · no vision".
+    var requirements: Set<ModelCapability> = []
+
+    private func title(for choice: ModelChoice) -> String {
+        let missing = providers.knownCapabilities(for: choice).unsupported(among: requirements)
+        guard !missing.isEmpty else { return choice.displayName }
+        return "\(choice.displayName) · \(missing.map(\.negated).joined(separator: ", "))"
+    }
 
     var body: some View {
         if let noneTitle {
@@ -176,7 +258,7 @@ struct ModelPickerOptions: View {
         if !apple.isEmpty {
             Section("Apple") {
                 ForEach(apple, id: \.rawValue) { choice in
-                    Text(choice.displayName).tag(choice.rawValue)
+                    Text(title(for: choice)).tag(choice.rawValue)
                 }
             }
         }
@@ -185,7 +267,7 @@ struct ModelPickerOptions: View {
             if !models.isEmpty {
                 Section(endpoint.displayName) {
                     ForEach(models, id: \.rawValue) { choice in
-                        Text(choice.displayName).tag(choice.rawValue)
+                        Text(title(for: choice)).tag(choice.rawValue)
                     }
                 }
             }
@@ -225,6 +307,7 @@ extension AgentTask {
         }
         if !variables.isEmpty { parts.append(variables.count.counted("variable")) }
         if allowsSteering { parts.append("Interactive") }
+        parts += declaredRequirements.sorted().map(\.label)
         return parts.isEmpty ? "Prompt only" : parts.joined(separator: " · ")
     }
 }

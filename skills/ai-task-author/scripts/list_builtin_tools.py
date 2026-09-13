@@ -18,7 +18,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_SOURCE = HERE.parent.parent.parent / "AITaskRunner" / "Services" / "Builtin"
-PACKS = {"shell": "ShellToolPack.swift"}
+PACKS = {"shell": "ShellToolPack.swift", "context": "ContextToolPack.swift"}
 
 TOOL_BLOCK = re.compile(
     r'BuiltinTool\(\s*name:\s*"(?P<name>[^"]+)",'

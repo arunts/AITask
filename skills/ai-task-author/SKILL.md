@@ -11,7 +11,8 @@ AITaskRunner is a Mac app that runs saved "tasks" on any OpenAI-compatible endpo
 - a **user prompt** (the concrete job, required),
 - **variables** the user fills in before each run, referenced as `{{key}}`,
 - **tools** the model may call: the built-in Shell pack, or MCP servers,
-- an **interactive** switch that gives the model an `ask_user` tool and a chat box.
+- an **interactive** switch that gives the model an `ask_user` tool and a chat box,
+- what the model must support (**requires**: `vision` for image input, `thinking` for reasoning models; tool calling is implied by the tools).
 
 Your job: interview the user briefly, write the prompts, pick the tools, produce `<Name>.json`, validate it with the bundled script, and tell them how to import it. Model choice and sampling settings are picked inside the app, never in the file, so do not ask about them.
 
@@ -22,6 +23,7 @@ Your job: interview the user briefly, write the prompts, pick the tools, produce
 | Tool | Does |
 |---|---|
 | `shell__run` | Run a command line in the login shell, with per-command approval. Reading, writing, finding and moving files all go through it (`ls`, `cat`, `find`, `grep`, heredocs, `mv`). |
+| `context__clear` | Drop everything but the system prompt, the task and a note the model writes. For runs that work through many large files or items one at a time; not available on the Apple model. |
 | `ask_user` | Ask the user a question mid-run (interactive tasks only; not listed in `tools`) |
 
 Shell commands are not confined to a folder; the user approves each one in the run window. Inside the AITaskRunner repo, `python3 scripts/list_builtin_tools.py` prints the live list from the Swift sources; `--check` confirms the validator agrees with them.
@@ -34,7 +36,8 @@ Shell commands are not confined to a folder; the user approves each one in the r
 Restate in one sentence what the task should produce each time it runs. From the description, work out:
 - what changes from run to run → **variables** (text, file, folder or list),
 - what the model has to touch → **tools** (none, Shell, an MCP server),
-- whether it needs to check in mid-run → **interactive**.
+- whether it needs to check in mid-run → **interactive**,
+- whether it depends on seeing images a tool returns → `"requires": ["vision"]`, or on a reasoning model → `"requires": ["thinking"]`. Leave `requires` out otherwise; the app adds tool calling by itself.
 
 ### 2. Ask only what changes the file
 Put every open question in one message and suggest a default for each, so "looks good" is a complete answer. Skip anything the description already settles. Typical questions:
@@ -53,8 +56,10 @@ Read `references/task-format.md` for the exact JSON before writing. Guidance tha
 
 ### 4. Pick tools
 - Prefer the built-in shell: `{ "builtin": "shell" }`. It runs commands with per-command approval and covers files, git, brew, curl and anything else with a CLI. Recipes are in `references/builtin-tools.md`.
+- When one run must process many large inputs one after another (every file in a folder, every page), add `{ "builtin": "context" }` and tell the prompt exactly when to call `context__clear` and what to put in the note (done, remaining, where output went). Save each item's output to disk first; the note is all the model keeps. The recipe is in `references/builtin-tools.md`.
 - Add an MCP server only when the shell cannot do it well, following the ladder in `references/mcp-servers.md`. Define it under `mcpServers` in the same shape Claude Desktop uses; the task refers to it by its slug. Tell the user what runtime to install (Node for `npx`, uv for `uvx`).
 - Never put API keys or tokens in the file. Leave `env` and `headers` out, and tell the user to add them in Settings › Tools after importing. If a header is structurally required, use an obvious placeholder such as `REPLACE_ME`.
+- If a tool returns images the job depends on (screenshots, rendered PDF pages, charts), add `"requires": ["vision"]` so the app offers only vision models and refuses the rest. Add `"thinking"` only when the job genuinely needs a reasoning model; it narrows the models the user can pick.
 
 ### 5. Write, validate, deliver
 1. Write `<Task Name>.json`, pretty-printed UTF-8, in the working directory or wherever the user asked.
@@ -62,13 +67,13 @@ Read `references/task-format.md` for the exact JSON before writing. Guidance tha
    ```bash
    python3 <skill-dir>/scripts/validate_task.py "<file>"
    ```
-3. Report: a short summary (what it does, its variables, its tools, whether it is interactive), the validator output, and the file path.
+3. Report: a short summary (what it does, its variables, its tools, whether it is interactive, what the model must support), the validator output, and the file path.
 4. Import instructions for the user: in AITaskRunner choose File › Import Task… (⌘⇧I) or the + button above the task list, pick the file, check the preview, and click Import Task. Servers the file defines are added automatically. Then pick a model in the toolbar and press Run (⌘R); variables are asked for before each run.
 
 ## What the importer refuses (errors)
 - Missing `"format": "AITaskDefinition"`, `"version": 1`, or a `"task"` object. (`"oddjobs-task"`, the old name, still imports.)
 - Empty `task.userPrompt`.
-- A `tools[]` entry that is neither `{"builtin": "shell", ...}` nor `{"server": "<slug>", ...}`, an unknown built-in pack, or an unknown built-in tool name.
+- A `tools[]` entry that is neither `{"builtin": "shell" | "context", ...}` nor `{"server": "<slug>", ...}`, an unknown built-in pack, or an unknown built-in tool name.
 - A `server` slug with no definition under `mcpServers` (unless a server with that slug already exists in the app).
 - An `mcpServers` definition without `command` (stdio) or `url` (http).
 
@@ -77,9 +82,10 @@ Read `references/task-format.md` for the exact JSON before writing. Guidance tha
 - Variable keys are sanitized to letters, digits, `_`, `.`, `-`; spaces become `_`. Use the sanitized form in the prompts.
 - `tools[].server` must equal the slug of the `mcpServers` key: lowercase, `a-z`, `0-9` and `-` kept, everything else becomes `_`. Lowercase keys avoid surprises.
 - If the app already has a server with the same slug, the file's definition is ignored and the existing one is reused.
-- The Shell pack can be turned off in Settings › Tools; the import succeeds with a warning.
+- The Shell and Context packs can be turned off in Settings › Tools; the import succeeds with a warning.
 - `tools: null` (or omitted) means every tool the server offers, including ones added later.
 - `"builtin": "bash"` (the pack's old name) still imports as Shell, but prompts must say `shell__run`.
+- A name in `requires` other than `tools`, `vision` or `thinking` is dropped with a warning.
 
 ## Examples
 Four complete files live in `assets/examples/`: prompt-only, Shell for files, Shell plus interactive, and an MCP server. Start from the closest one and adapt it rather than writing from scratch.

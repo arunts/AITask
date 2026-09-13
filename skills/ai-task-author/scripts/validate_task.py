@@ -20,15 +20,19 @@ CURRENT_VERSION = 1
 # pack slug -> tool names. Mirrors the BuiltinTool definitions in the Swift packs.
 BUILTIN_TOOLS = {
     "shell": ["run"],
+    "context": ["clear"],
 }
-BUILTIN_LABELS = {"shell": "Shell"}
+BUILTIN_LABELS = {"shell": "Shell", "context": "Context"}
 # Old pack names the app still accepts on import.
 BUILTIN_ALIASES = {"bash": "shell"}
 VARIABLE_KINDS = ("text", "file", "folder", "list")
+# What a task may require of the model (ModelCapability). Tool calling is implied by tools[] and allowsSteering.
+CAPABILITIES = ("tools", "vision", "thinking")
+CAPABILITY_LABELS = {"tools": "Tool calling", "vision": "Vision", "thinking": "Thinking"}
 # Most entries a list variable may hold (TaskVariable.maxOptions).
 MAX_LIST_OPTIONS = 100
 KNOWN_TOP = {"format", "version", "task", "mcpServers"}
-KNOWN_TASK = {"name", "systemPrompt", "userPrompt", "allowsSteering", "variables", "tools"}
+KNOWN_TASK = {"name", "systemPrompt", "userPrompt", "allowsSteering", "requires", "variables", "tools"}
 KNOWN_VARIABLE = {"key", "type", "default", "defaultValue", "description", "options"}
 KNOWN_SERVER = {"name", "type", "command", "args", "env", "url", "headers"}
 KNOWN_TOOL_ENTRY = {"builtin", "server", "tools"}
@@ -204,6 +208,7 @@ def check_task(root, report):
     variables = check_variables(task.get("variables", []), report)
     servers = check_servers(root.get("mcpServers"), report)
     attachments = check_tools(task.get("tools", []), servers, report)
+    requires = check_requires(task.get("requires", []), attachments, steering, report)
     check_prompts(system_prompt + "\n" + user_prompt, variables, attachments, steering, report)
 
     return {
@@ -212,7 +217,31 @@ def check_task(root, report):
         "variables": variables,
         "attachments": attachments,
         "servers": servers,
+        "requires": requires,
     }
+
+
+def check_requires(entries, attachments, steering, report):
+    """Return the effective requirement list (declared + implied tool calling), in canonical order."""
+    declared = set()
+    if entries is None:
+        entries = []
+    if not isinstance(entries, list):
+        report.warn('task.requires must be an array of strings (any of "tools", "vision", "thinking"); ignored.')
+        entries = []
+    for entry in entries:
+        if not isinstance(entry, str):
+            report.warn(f'task.requires: non-string entry {entry!r} is ignored.')
+            continue
+        name = entry.strip().lower()
+        if name in CAPABILITIES:
+            declared.add(name)
+        elif name:
+            report.warn(f'task.requires: unknown capability "{entry}" is ignored by the app (known: {", ".join(CAPABILITIES)}).')
+    implied = {"tools"} if attachments or steering else set()
+    if "vision" in declared and not attachments:
+        report.warn('task.requires lists vision but no tools are attached; images only reach the model through tool results.')
+    return [c for c in CAPABILITIES if c in declared | implied]
 
 
 def check_variables(entries, report):
@@ -310,7 +339,7 @@ def check_tools(entries, servers, report):
                 report.warn(f'{label}: "{builtin}" is the old name of the {BUILTIN_LABELS[BUILTIN_ALIASES[builtin]]} pack; the app accepts it, but write "{BUILTIN_ALIASES[builtin]}" and use {BUILTIN_ALIASES[builtin]}__ names in the prompts.')
                 builtin = BUILTIN_ALIASES[builtin]
             if not isinstance(builtin, str) or builtin not in BUILTIN_TOOLS:
-                report.error(f'{label}: unknown built-in pack "{builtin}" (use "shell").')
+                report.error(f'{label}: unknown built-in pack "{builtin}" (use "shell" or "context").')
                 continue
             pack = BUILTIN_TOOLS[builtin]
             if names is not None:
@@ -410,12 +439,16 @@ def traits(summary):
         parts.append(f"{n} variable{'s' if n != 1 else ''}")
     if summary["steering"]:
         parts.append("Interactive")
+    implied = {"tools"} if summary["attachments"] or summary["steering"] else set()
+    parts += [CAPABILITY_LABELS[c] for c in summary.get("requires", []) if c not in implied]
     return " · ".join(parts) if parts else "Prompt only"
 
 
 def print_summary(summary):
     print(f"  Name:       {summary['name']}")
     print(f"  Traits:     {traits(summary)}")
+    if summary.get("requires"):
+        print(f"  Needs:      a model with {', '.join(CAPABILITY_LABELS[c].lower() for c in summary['requires'])}")
     if summary["variables"]:
         print("  Variables:")
         for v in summary["variables"]:

@@ -4,11 +4,13 @@ import Foundation
 /// same `slug__tool` naming, but run in-process and need nothing installed.
 nonisolated enum BuiltinToolPack: String, CaseIterable, Identifiable, Sendable {
     case shell
+    case context
 
     /// Stable identity so task attachments survive restarts.
     var id: UUID {
         switch self {
         case .shell: return UUID(uuidString: "0DD70B5F-0000-4000-8000-000000000002")!
+        case .context: return UUID(uuidString: "0DD70B5F-0000-4000-8000-000000000003")!
         }
     }
 
@@ -30,6 +32,7 @@ nonisolated enum BuiltinToolPack: String, CaseIterable, Identifiable, Sendable {
     var name: String {
         switch self {
         case .shell: return "Shell"
+        case .context: return "Context"
         }
     }
 
@@ -37,12 +40,15 @@ nonisolated enum BuiltinToolPack: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .shell:
             return "Run a shell command and return its output and exit code. Commands run in your login shell with your PATH, so the model can read, write and search files with the usual tools."
+        case .context:
+            return "Let the model clear its own context window mid-run, keeping only the system prompt, the task and a note it writes. For tasks that work through many large files or items one at a time. Not available on the Apple on-device model."
         }
     }
 
     var definitions: [BuiltinTool] {
         switch self {
         case .shell: return ShellToolPack.definitions
+        case .context: return ContextToolPack.definitions
         }
     }
 
@@ -78,11 +84,12 @@ nonisolated struct BuiltinToolSettings: Codable, Hashable, Sendable {
     var workingDirectory = NSHomeDirectory()
     var shellRequiresApproval = true
     var shellTimeoutSeconds = 60
+    var contextEnabled = true
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case shellEnabled, workingDirectory, shellRequiresApproval, shellTimeoutSeconds
+        case shellEnabled, workingDirectory, shellRequiresApproval, shellTimeoutSeconds, contextEnabled
         // Names used before the pack was renamed from Bash.
         case bashEnabled, allowedFolders, bashRequiresApproval, bashTimeoutSeconds
     }
@@ -97,6 +104,7 @@ nonisolated struct BuiltinToolSettings: Codable, Hashable, Sendable {
             ?? c.decodeIfPresent(Bool.self, forKey: .bashRequiresApproval) ?? true
         shellTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .shellTimeoutSeconds)
             ?? c.decodeIfPresent(Int.self, forKey: .bashTimeoutSeconds) ?? 60
+        contextEnabled = try c.decodeIfPresent(Bool.self, forKey: .contextEnabled) ?? true
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -105,11 +113,13 @@ nonisolated struct BuiltinToolSettings: Codable, Hashable, Sendable {
         try c.encode(workingDirectory, forKey: .workingDirectory)
         try c.encode(shellRequiresApproval, forKey: .shellRequiresApproval)
         try c.encode(shellTimeoutSeconds, forKey: .shellTimeoutSeconds)
+        try c.encode(contextEnabled, forKey: .contextEnabled)
     }
 
     func isEnabled(_ pack: BuiltinToolPack) -> Bool {
         switch pack {
         case .shell: return shellEnabled
+        case .context: return contextEnabled
         }
     }
 

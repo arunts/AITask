@@ -34,12 +34,13 @@ final class MCPRegistry {
     private var saveTask: Task<Void, Never>?
     private var builtinSaveTask: Task<Void, Never>?
 
-    init(directory: URL = AppPaths.supportDirectory) {
+    init(directory: URL = AppPaths.supportDirectory, autoConnect: Bool = true) {
         fileURL = directory.appending(path: "mcp-servers.json")
         builtinURL = directory.appending(path: "builtin-tools.json")
         mcpServers = JSONFile.load([MCPServerConfig].self, from: fileURL) ?? []
         storedBuiltinSettings = JSONFile.load(BuiltinToolSettings.self, from: builtinURL) ?? BuiltinToolSettings()
         // Every configured server connects at launch; there is no per-server opt-in.
+        guard autoConnect else { return }
         for server in mcpServers where server.isConfigured {
             Task { await connect(id: server.id) }
         }

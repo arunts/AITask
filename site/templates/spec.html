@@ -27,6 +27,7 @@ $toc
     "systemPrompt": "You are a concise technical writer. Reply in Markdown.",
     "userPrompt": "1. Run shell__run with: find \"{{notes_folder}}\" -maxdepth 1 -name '*.md'\n2. Read each file with: cat \"&lt;path&gt;\"\n3. Write a summary to {{notes_folder}}/SUMMARY.md with: cat &gt; file &lt;&lt;'EOF'",
     "allowsSteering": false,
+    "requires": ["tools"],
     "variables": [
       { "key": "notes_folder", "type": "folder", "default": "~/Notes", "description": "Folder to summarise" },
       { "key": "topics", "type": "list", "options": ["weather", "sport"], "description": "Topics to cover" }
@@ -63,6 +64,7 @@ $toc
           <tr><td><code>systemPrompt</code></td><td>string</td><td><code>""</code></td><td>The model's standing brief: who it is, rules it must follow, how to answer. Sent before the user prompt on every run. Variables are substituted and tool names recognised here too.</td></tr>
           <tr><td><code>userPrompt</code></td><td>string</td><td>—</td><td><strong>Required and non-empty.</strong> What the model should do. May mention variables as <code>{{key}}</code> and tools by name.</td></tr>
           <tr><td><code>allowsSteering</code></td><td>boolean</td><td><code>false</code></td><td><code>true</code> makes the task interactive: the run window gets a chat box and the model gets an <code>ask_user</code> tool. Interactive tasks cannot be scheduled.</td></tr>
+          <tr><td><code>requires</code></td><td>array of strings</td><td><code>[]</code></td><td>What the model must support: any of <code>"tools"</code>, <code>"vision"</code>, <code>"thinking"</code>. Tool calling is assumed whenever tools are attached or the task is interactive. See <a href="#requires">Model requirements</a>.</td></tr>
           <tr><td><code>variables</code></td><td>array</td><td><code>[]</code></td><td>Values the app asks for before each run. See <a href="#variables">Variables</a>.</td></tr>
           <tr><td><code>tools</code></td><td>array</td><td><code>[]</code></td><td>What the model may call. See <a href="#tools">Tools</a>.</td></tr>
         </tbody>
@@ -95,16 +97,31 @@ $toc
       <table>
         <thead><tr><th>Key</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td><code>builtin</code></td><td>A pack that ships inside the app. Today that is <code>"shell"</code>. Unknown packs are refused. <code>"bash"</code>, the pack's old name, is still accepted and treated as <code>shell</code>.</td></tr>
+          <tr><td><code>builtin</code></td><td>A pack that ships inside the app: <code>"shell"</code> or <code>"context"</code>. Unknown packs are refused. <code>"bash"</code>, the shell pack's old name, is still accepted and treated as <code>shell</code>.</td></tr>
           <tr><td><code>server</code></td><td>The slug of an MCP server defined under <code>mcpServers</code>, or of one the user already has in the app.</td></tr>
           <tr><td><code>tools</code></td><td>The exact tool names to expose, as an array. <code>null</code> or omitted means every tool the source offers, including ones added later. Unknown built-in tool names are refused. MCP tool names cannot be checked at import time, so spell them exactly as the server reports them. Fewer tools help small models choose well.</td></tr>
         </tbody>
       </table>
       </div>
-      <p>The model sees each tool as <code>source__tool</code>: <code>shell__run</code>, <code>fetch__fetch</code>. Use those exact names in the prompts. The app highlights them, and small models follow explicit names far more reliably than descriptions. Order matters only for display; attaching the same source twice is pointless, and the last entry wins.</p>
+      <p>The model sees each tool as <code>source__tool</code>: <code>shell__run</code>, <code>context__clear</code>, <code>fetch__fetch</code>. Use those exact names in the prompts. The app highlights them, and small models follow explicit names far more reliably than descriptions. Order matters only for display; attaching the same source twice is pointless, and the last entry wins.</p>
+
+      <h2 id="requires">Model requirements</h2>
+      <p>A task can say what the model must be able to do. The app never runs it on a model known to lack one of these, marks such models in the picker, turns Run off for them, and holds a scheduled run until the chosen model qualifies.</p>
+<pre><code>"requires": ["tools", "vision"]</code></pre>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Name</th><th>Means</th><th>When to list it</th></tr></thead>
+        <tbody>
+          <tr><td><code>tools</code></td><td>The model can call tools.</td><td>Never needed by hand: it is assumed whenever <code>tools</code> is non-empty or <code>allowsSteering</code> is <code>true</code>. Listing it is harmless, and the app writes it on export.</td></tr>
+          <tr><td><code>vision</code></td><td>The model accepts image input, so it sees the images tools return instead of a text placeholder.</td><td>The job depends on looking at screenshots, rendered pages, charts or photos that a tool returns.</td></tr>
+          <tr><td><code>thinking</code></td><td>The model reasons before it answers (Qwen3, DeepSeek-R1, gpt-oss, Gemma 4 and other “thinking” models).</td><td>The job needs multi-step reasoning that plain instruction-tuned models get wrong. The app does not turn thinking on; it only limits which models are offered.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>How the app knows what a model supports: Ollama reports all three for each model; LM Studio and llama.cpp report vision; and a run teaches it (a rejected image or tool request, a tool call that came back). A model whose server reports nothing is allowed to run, with a note in the transcript. When <code>vision</code> is required and the server rejects the images anyway, the run ends instead of going on without them.</p>
 
       <h2 id="builtin">Built-in tools</h2>
-      <p>One pack, <strong>Shell</strong>, which appears to the model as <code>shell__run</code>. Nothing to install. It can be turned off in the app; a task that needs it still imports, with a warning, and fails at run time until it is turned back on.</p>
+      <p>Two packs, <strong>Shell</strong> (<code>shell__run</code>) and <strong>Context</strong> (<code>context__clear</code>). Nothing to install. Either can be turned off in the app; a task that needs it still imports, with a warning, and fails at run time until it is turned back on.</p>
       <div class="table-scroll">
       <table>
         <thead><tr><th>Tool</th><th>What it does</th><th>Arguments</th></tr></thead>
@@ -115,12 +132,22 @@ $toc
       </div>
       <p>Every command is shown for approval before it runs (Deny, Allow, or Allow All This Run) unless approval is turned off. In a scheduled run, commands run without asking. Commands are not confined to any folder; they can reach anything the user's account can. Write destructive jobs so the prompt uses the Trash rather than <code>rm</code>.</p>
       <p>Working with files goes through the shell: <code>ls</code>, <code>cat</code>, <code>find</code>, <code>grep</code>, <code>mv</code>, and a heredoc (<code>cat &gt; file &lt;&lt;'EOF'</code>) to write. Quote paths in the commands you write into the prompt, so spaces in folder names do not break them.</p>
+      <h3 id="context-clear"><code>context__clear</code></h3>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Tool</th><th>What it does</th><th>Arguments</th></tr></thead>
+        <tbody>
+          <tr><td><code>context__clear</code></td><td>Drops everything in the conversation except the system prompt, the task's user prompt and the note passed in; the model continues from a tool result that repeats the note. For runs that work through many large files or items one at a time, where each item would otherwise stay in the context window. A blank note clears nothing. Tool calls issued after it in the same reply still run. The round limit restarts. Skipped on the Apple on-device model.</td><td><code>note</code> (required): what is done, what comes next, and anything not yet saved</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>Attach it with <code>{ "builtin": "context" }</code>. Have the prompt save each item's output to disk before calling it, and put the remaining items in the note: after a clear the model remembers nothing else.</p>
       <h3 id="ask-user"><code>ask_user</code></h3>
       <p>Not listed in <code>tools</code>. When <code>allowsSteering</code> is <code>true</code> the app adds it automatically. It shows a question in the run window and suspends the run until the user answers or stops it. One argument: <code>question</code>. Tell the model when to use it (“ask_user before any destructive step”) and when not to.</p>
 
       <h2 id="mcp">MCP servers</h2>
       <p>For anything the shell cannot do well, such as fetching web pages or talking to a service, a task can use an MCP server. Define it under <code>mcpServers</code> in the same shape Claude Desktop, Cursor, VS Code and Claude Code use. The key is the server's name; its <strong>slug</strong> is what <code>tools[].server</code> refers to.</p>
-      <p><strong>Slug rule:</strong> lowercase the name; keep ASCII letters, digits and <code>-</code>; every other run of characters becomes a single <code>_</code>; trim <code>_</code> and <code>-</code> from both ends. <code>"Brave Search"</code> → <code>brave_search</code>. A definition may carry its own <code>"name"</code>, which then replaces the key for both display and slug. Do not use <code>shell</code> or <code>bash</code> as a slug; they belong to the built-in pack.</p>
+      <p><strong>Slug rule:</strong> lowercase the name; keep ASCII letters, digits and <code>-</code>; every other run of characters becomes a single <code>_</code>; trim <code>_</code> and <code>-</code> from both ends. <code>"Brave Search"</code> → <code>brave_search</code>. A definition may carry its own <code>"name"</code>, which then replaces the key for both display and slug. Do not use <code>shell</code>, <code>bash</code> or <code>context</code> as a slug; they belong to the built-in packs.</p>
       <h3 id="mcp-stdio">A server started as a local program</h3>
 <pre><code>"fetch": {
   "type": "stdio",
@@ -146,6 +173,14 @@ $toc
       </ul>
       <div class="callout"><p>Keep API keys out of shared files. Leave <code>env</code> and <code>headers</code> out and add them in the app after importing. Where a header is structurally required, use an obvious placeholder such as <code>REPLACE_ME</code>.</p></div>
       <p>If the user already has a server with the same slug, the app reuses theirs and ignores the definition in the file. Otherwise the definition is added to the app with a fresh ID. Definitions that no <code>tools[]</code> entry references are ignored.</p>
+      <h3 id="tool-results">How tool results reach the model</h3>
+      <ul>
+        <li>Text content is joined and sent as the tool result. A result longer than about 60 000 characters is cut with a note.</li>
+        <li>MCP <strong>image</strong> content (and embedded resources with an <code>image/*</code> blob; PNG, JPEG, WebP, GIF) is kept. An OpenAI-compatible model receives the images as <code>image_url</code> parts in a follow-up <code>user</code> message right after the tool result; the tool result itself keeps a numbered placeholder such as <code>[image 1: image/png]</code>. About 24 MB of image data per result is forwarded; the rest is dropped with a note.</li>
+        <li>A model without vision (the server rejects the images) gets the placeholder plus a note that images are not shown; the app switches to text-only for the rest of the run and says so in the transcript. Some servers silently ignore images instead of rejecting them. When the task <a href="#requires">requires</a> vision, a rejected image ends the run instead.</li>
+        <li>The Apple on-device model never receives images; it gets the placeholder and a note.</li>
+        <li>Images returned by tools appear as thumbnails under the tool call in the run window.</li>
+      </ul>
 
       <h2 id="import">What happens on import</h2>
       <p>The preview shows the task, its variables, its tools, and which servers will be added or reused. Nothing is changed until the import is confirmed.</p>
@@ -161,6 +196,7 @@ $toc
       <ul>
         <li>The Shell pack is turned off in the app.</li>
         <li>A list variable has more than 100 options; only the first 100 are kept.</li>
+        <li>A name in <code>requires</code> other than <code>tools</code>, <code>vision</code> or <code>thinking</code>; it is dropped.</li>
       </ul>
       <h3 id="silent">Goes wrong silently</h3>
       <ul>
@@ -172,7 +208,7 @@ $toc
       </ul>
 
       <h2 id="export">How the app exports</h2>
-      <p>Exporting a task writes exactly this format. <code>env</code> and <code>headers</code> are left out unless “Include environment variables and HTTP headers” is ticked. Variables of type text carry their <code>default</code>; lists carry their <code>options</code>. Round-tripping a file through export and import is lossless apart from those secrets and the per-machine fields listed at the top.</p>
+      <p>Exporting a task writes exactly this format. <code>env</code> and <code>headers</code> are left out unless “Include environment variables and HTTP headers” is ticked. Variables of type text carry their <code>default</code>; lists carry their <code>options</code>. <code>requires</code> holds everything the task needs, <code>tools</code> included whenever a tool is attached. Round-tripping a file through export and import is lossless apart from those secrets and the per-machine fields listed at the top.</p>
 
       <h2 id="validate">Validating by hand</h2>
       <p>The <a href="${root}skill/">authoring skill</a> ships a standard-library Python script that mirrors the importer and prints a preview. Exit code 0 means the app will import the file; 1 lists the errors; warnings never block.</p>
@@ -186,6 +222,7 @@ $toc
         <li>Every <code>tools[].server</code> has a matching <code>mcpServers</code> slug.</li>
         <li>Every tool name mentioned in the prompts is attached: <code>shell__run</code> needs the <code>shell</code> entry.</li>
         <li><code>ask_user</code> mentioned only when <code>allowsSteering</code> is <code>true</code>.</li>
+        <li><code>requires</code> lists <code>vision</code> when the job depends on images a tool returns, and <code>thinking</code> only when a reasoning model is a must.</li>
         <li>No secrets in <code>env</code> or <code>headers</code>.</li>
         <li>The validator exits 0.</li>
       </ol>

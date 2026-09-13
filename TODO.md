@@ -1,5 +1,6 @@
+Set timeouts for tasks
 
-Add multiple local endpoint settings. Call it something else instead of localhost maybe just base don the OpenAI protocol that it is accepting. Also how do we namespace the model provider and the model names within it when we add it to a scheduled task to be used.
+Scrolling bug in the task view.
 
 Is there a way to auto launch that provide even if it is closed
 What if the provider and model name is not availble for the scheduled task. 

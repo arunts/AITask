@@ -34,7 +34,14 @@ final class ProviderHub {
     private var endpointModels: [UUID: [String]] = [:]
     /// Discovered window sizes, keyed by `ModelChoice.rawValue`.
     private var discoveredWindows: [String: (tokens: Int, source: String)] = [:]
+    /// What endpoints reported (and runs found out) about each model, keyed by `ModelChoice.rawValue`.
+    private var discoveredCapabilities: [String: CapabilityReport] = [:]
+    /// Models asked about at least once this session, so endpoints that never answer are not asked on every poll.
+    private var capabilityProbes: Set<String> = []
     private var pollingTask: Task<Void, Never>?
+
+    /// Apple's on-device model: tools through the framework, no images, no reasoning trace.
+    static let appleCapabilities = CapabilityReport(supported: [.tools], unsupported: [.vision, .thinking], source: "Apple")
 
     init(settings: AppSettings) {
         self.settings = settings
@@ -99,6 +106,63 @@ final class ProviderHub {
         return discoveredWindows[choice.rawValue]
     }
 
+    // MARK: - Capabilities
+
+    /// What is known right now about a model, without asking the server: the endpoint's report and anything
+    /// runs found out. Unknown until the model has been looked up.
+    func knownCapabilities(for choice: ModelChoice) -> CapabilityReport {
+        switch choice {
+        case .appleFoundation:
+            return Self.appleCapabilities
+        case .openAICompatible:
+            return discoveredCapabilities[choice.rawValue] ?? .unknown
+        }
+    }
+
+    /// Like `knownCapabilities`, but asks the endpoint first when nothing has been discovered yet.
+    func capabilities(for choice: ModelChoice) async -> CapabilityReport {
+        if case .openAICompatible(let endpointID, let model) = choice, discoveredCapabilities[choice.rawValue] == nil {
+            await lookUpCapabilities(endpointID: endpointID, model: model)
+        }
+        return knownCapabilities(for: choice)
+    }
+
+    /// Records what a run found out, e.g. the server refused images or the model called a tool.
+    /// A run's evidence outranks the endpoint's report for that capability.
+    func learn(_ capability: ModelCapability, supported: Bool, for choice: ModelChoice) {
+        guard case .openAICompatible = choice else { return }
+        var report = discoveredCapabilities[choice.rawValue] ?? .unknown
+        report.set(capability, supported: supported, source: "a run")
+        discoveredCapabilities[choice.rawValue] = report
+    }
+
+    private func lookUpCapabilities(endpointID: UUID, model: String) async {
+        let key = ModelChoice.openAICompatible(endpointID: endpointID, model: model).rawValue
+        capabilityProbes.insert(key)
+        guard let client = try? client(for: endpointID), let found = await client.discoverCapabilities(model: model) else { return }
+        // The endpoint may have been removed, or a run may have learned something, while the request was in flight.
+        guard settings.endpoint(id: endpointID) != nil else { return }
+        var report = found
+        for (capability, entry) in discoveredCapabilities[key]?.entries ?? [:] where entry.source == "a run" {
+            report.entries[capability] = entry
+        }
+        discoveredCapabilities[key] = report
+    }
+
+    /// Asks about every listed model that has not been asked about this session, all at once.
+    private func discoverCapabilities(endpointID: UUID, models: [String]) async {
+        let pending = models.filter { model in
+            let key = ModelChoice.openAICompatible(endpointID: endpointID, model: model).rawValue
+            return discoveredCapabilities[key] == nil && !capabilityProbes.contains(key)
+        }
+        guard !pending.isEmpty else { return }
+        await withTaskGroup(of: Void.self) { group in
+            for model in pending {
+                group.addTask { await self.lookUpCapabilities(endpointID: endpointID, model: model) }
+            }
+        }
+    }
+
     // MARK: - Refresh
 
     func refreshAll() async {
@@ -112,6 +176,10 @@ final class ProviderHub {
         let keep = Set(endpoints.map(\.id))
         endpointStatuses = endpointStatuses.filter { keep.contains($0.key) }
         endpointModels = endpointModels.filter { keep.contains($0.key) }
+        discoveredCapabilities = discoveredCapabilities.filter { entry in
+            guard let id = ModelChoice(rawValue: entry.key)?.endpointID else { return true }
+            return keep.contains(id)
+        }
 
         let active = endpoints.filter { $0.isEnabled && $0.isConfigured }
         for endpoint in active where endpointStatuses[endpoint.id] != .online {
@@ -145,6 +213,7 @@ final class ProviderHub {
             case .success(let models):
                 endpointModels[id] = models
                 endpointStatuses[id] = .online
+                Task { await discoverCapabilities(endpointID: id, models: models) }
             case .failure(let error):
                 endpointModels[id] = []
                 endpointStatuses[id] = .offline(Self.shortReason(for: error))

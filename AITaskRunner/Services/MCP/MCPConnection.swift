@@ -86,29 +86,60 @@ actor MCPConnection {
             timeout: .seconds(600)
         )
         let isError = result["isError"]?.bool ?? false
-        var text = Self.flatten(content: result["content"])
+        let extracted = Self.extract(content: result["content"])
+        var text = extracted.text
         if text.isEmpty, let structured = result["structuredContent"] {
             text = structured.prettyString
         }
-        return MCPToolResult(text: text, isError: isError)
+        return MCPToolResult(text: text, isError: isError, images: extracted.images)
     }
 
+    /// Image types that vision endpoints generally accept. Anything else stays a text placeholder.
+    static let supportedImageTypes: Set<String> = ["image/png", "image/jpeg", "image/webp", "image/gif"]
+
+    /// The text of a tool result's content items, with a numbered placeholder where each image was.
     static func flatten(content: JSONValue?) -> String {
-        guard let items = content?.array else { return content?.textValue ?? "" }
+        extract(content: content).text
+    }
+
+    /// Splits MCP content items into their text (with a numbered placeholder per image, so transcripts and
+    /// non-vision paths still say what was there) and the images themselves.
+    static func extract(content: JSONValue?) -> (text: String, images: [MCPImage]) {
+        guard let items = content?.array else { return (content?.textValue ?? "", []) }
         var parts: [String] = []
+        var images: [MCPImage] = []
+
+        func collect(mimeType rawType: String?, data: String?) {
+            let mimeType = (rawType ?? "").split(separator: ";").first.map { $0.trimmingCharacters(in: .whitespaces).lowercased() } ?? ""
+            guard let data, !data.isEmpty else {
+                parts.append("[image \(mimeType): empty]")
+                return
+            }
+            guard supportedImageTypes.contains(mimeType) else {
+                parts.append("[image \(mimeType): not supported]")
+                return
+            }
+            images.append(MCPImage(mimeType: mimeType, base64: data))
+            parts.append("[image \(images.count): \(mimeType)]")
+        }
+
         for item in items {
             switch item["type"]?.string {
             case "text":
                 parts.append(item["text"]?.string ?? "")
             case "image":
-                parts.append("[image \(item["mimeType"]?.string ?? "")]")
+                collect(mimeType: item["mimeType"]?.string, data: item["data"]?.string)
             case "audio":
                 parts.append("[audio \(item["mimeType"]?.string ?? "")]")
             case "resource":
-                if let text = item["resource"]?["text"]?.string {
+                let resource = item["resource"]
+                if let text = resource?["text"]?.string {
                     parts.append(text)
+                } else if let blob = resource?["blob"]?.string,
+                          let mimeType = resource?["mimeType"]?.string, mimeType.lowercased().hasPrefix("image/") {
+                    collect(mimeType: mimeType, data: blob)
                 } else {
-                    parts.append("[resource \(item["resource"]?["uri"]?.string ?? "")]")
+                    parts.append("[resource \(resource?["uri"]?.string ?? "")]")
                 }
             case "resource_link":
                 parts.append("[resource link \(item["uri"]?.string ?? "")]")
@@ -116,7 +147,7 @@ actor MCPConnection {
                 parts.append(item.compactString)
             }
         }
-        return parts.joined(separator: "\n")
+        return (parts.joined(separator: "\n"), images)
     }
 
     // MARK: - JSON-RPC plumbing

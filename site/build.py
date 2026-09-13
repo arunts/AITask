@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Builds the AITaskRunner website into docs/ (served by GitHub Pages).
 
-    python3 site/build.py            # rebuild docs/
-    python3 site/build.py --check    # validate the task catalog only
+    python3 site/build.py                          # rebuild docs/
+    python3 site/build.py --check                  # validate the task catalog only
+    python3 site/build.py add <task.json> [opts]   # copy a task into the catalog (or refresh it)
+    python3 site/build.py sync                     # re-copy every task whose source file changed
+    python3 site/build.py list                     # show the catalog and which copies are stale
 
 Sources: site/templates/*.html, site/static/*, site/tasks/*.json + catalog.json,
 skills/ai-task-author/** (zipped and rendered). Standard library only.
 """
 
+import argparse
 import hashlib
 import html
 import importlib.util
@@ -319,8 +323,21 @@ def load_validator():
     return module
 
 
+def validate_task_text(validator, text, label):
+    """Runs the skill validator over one task file; prints its findings; returns the summary, or None on errors."""
+    report = validator.Report()
+    summary = validator.validate(text, report)
+    for warning in report.warnings:
+        print(f"  warning {label}: {warning}")
+    for error in report.errors:
+        print(f"  ERROR {label}: {error}")
+    return None if report.errors else summary
+
+
 VARIABLE_PATTERN = re.compile(r"\{\{\s*([A-Za-z0-9_][A-Za-z0-9_.-]*)\s*\}\}")
 TOOL_PATTERN = re.compile(r"([A-Za-z0-9][A-Za-z0-9_-]*?)__([A-Za-z0-9][A-Za-z0-9_.-]*)")
+# Chip text for task.requires entries worth showing (tool calling is implied by the tools and not shown).
+REQUIREMENT_LABELS = {"tools": "tool calling", "vision": "vision", "thinking": "a thinking model"}
 
 
 def highlight_prompt(text, variable_keys, tool_slugs, steering):
@@ -357,16 +374,13 @@ def build_tasks(check_only=False):
     for entry in catalog["tasks"]:
         path = SITE / "tasks" / entry["file"]
         text = read(path)
-        report = validator.Report()
-        summary = validator.validate(text, report)
         label = path.name
-        for warning in report.warnings:
-            print(f"  warning {label}: {warning}")
-        if report.errors or summary is None:
+        summary = validate_task_text(validator, text, label)
+        if summary is None:
             failed = True
-            for error in report.errors:
-                print(f"  ERROR {label}: {error}")
             continue
+        if source_state(entry) == "stale":
+            print(f"  note {label}: differs from its source; run `python3 site/build.py sync` to refresh it")
         unknown_tags = [t for t in entry.get("tags", []) if t not in categories]
         if unknown_tags:
             failed = True
@@ -389,6 +403,7 @@ def build_tasks(check_only=False):
             "featured": bool(entry.get("featured")),
             "needs": needs,
             "interactive": summary["steering"],
+            "requires": [c for c in summary.get("requires", []) if c != "tools" or not (attachments or summary["steering"])],
             "variables": summary["variables"],
             "attachments": attachments,
             "servers": servers,
@@ -396,7 +411,7 @@ def build_tasks(check_only=False):
             "data": data,
             "text": text,
             "size": len(text.encode("utf-8")),
-            "search": " ".join([a["slug"] for a in attachments] + [v["key"] for v in summary["variables"]]),
+            "search": " ".join([a["slug"] for a in attachments] + [v["key"] for v in summary["variables"]] + summary.get("requires", [])),
         })
 
     if failed:
@@ -417,6 +432,8 @@ def chips_for(task, categories, link_root):
             chips.append(f'<span class="chip tool">MCP · {h(a["slug"])}</span>')
     if task["interactive"]:
         chips.append('<span class="chip interactive">Interactive</span>')
+    for capability in task["requires"]:
+        chips.append(f'<span class="chip interactive">Needs {h(REQUIREMENT_LABELS[capability])}</span>')
     if task["variables"]:
         n = len(task["variables"])
         chips.append(f'<span class="chip var">{n} variable{"s" if n != 1 else ""}</span>')
@@ -432,6 +449,8 @@ def task_card(task, categories, root):
             meta.append(f'<span class="chip tool">MCP · {h(a["slug"])}</span>')
     if task["interactive"]:
         meta.append('<span class="chip interactive">Interactive</span>')
+    for capability in task["requires"]:
+        meta.append(f'<span class="chip interactive">Needs {h(REQUIREMENT_LABELS[capability])}</span>')
     for tag in task["tags"]:
         meta.append(f'<span class="chip tag">{h(categories[tag])}</span>')
     return (
@@ -671,8 +690,167 @@ def copy_static():
     write(OUT / ".nojekyll", "")
 
 
+# ---- Catalog maintenance -----------------------------------------------------------------
+# Each catalog entry may carry "source": the file the copy in site/tasks/ was taken from, written
+# with ~ for the home directory. `add` records it, `sync` re-copies from it, `list` shows drift.
+
+CATALOG = SITE / "tasks" / "catalog.json"
+
+
+def load_catalog():
+    return json.loads(read(CATALOG))
+
+
+def save_catalog(catalog):
+    write(CATALOG, json.dumps(catalog, indent=2, ensure_ascii=False) + "\n")
+
+
+def portable_path(path):
+    path = Path(path).expanduser().resolve()
+    try:
+        return "~/" + path.relative_to(Path.home()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def source_state(entry):
+    """'none' (no source recorded), 'missing' (source gone), 'stale' (copy differs) or 'synced'."""
+    source = entry.get("source")
+    if not source:
+        return "none"
+    path = Path(source).expanduser()
+    if not path.is_file():
+        return "missing"
+    dest = SITE / "tasks" / entry["file"]
+    return "synced" if dest.is_file() and read(dest) == read(path) else "stale"
+
+
+def parse_tags(text, categories):
+    tags = [t.strip() for t in text.split(",") if t.strip()]
+    unknown = [t for t in tags if t not in categories]
+    if unknown:
+        sys.exit(f"Unknown tags: {', '.join(unknown)}. Choose from: {', '.join(categories)}")
+    return tags
+
+
+def add_task(args):
+    source = Path(args.file).expanduser().resolve()
+    if not source.is_file():
+        sys.exit(f"No such file: {source}")
+    text = read(source)
+    summary = validate_task_text(load_validator(), text, source.name)
+    if summary is None:
+        sys.exit(f"{source.name} is not importable; nothing was written.")
+
+    catalog = load_catalog()
+    categories = catalog["categories"]
+    slug = slugify(args.slug or summary["name"] or source.stem)
+    file_name = f"{slug}.json"
+    tags = parse_tags(args.tags, categories) if args.tags is not None else None
+    entry = next((e for e in catalog["tasks"] if e["file"] == file_name), None)
+
+    if entry is None:
+        if not args.description:
+            sys.exit(f"{file_name} is new: pass --description \"one or two sentences\" "
+                     f"(and --tags from: {', '.join(categories)}; --featured for the landing page).")
+        entry = {"file": file_name, "description": args.description, "tags": tags or [], "featured": bool(args.featured)}
+        catalog["tasks"].append(entry)
+        action = "added"
+    else:
+        if args.description:
+            entry["description"] = args.description
+        if tags is not None:
+            entry["tags"] = tags
+        if args.featured:
+            entry["featured"] = True
+        if args.no_featured:
+            entry["featured"] = False
+        action = "updated"
+    entry["source"] = portable_path(source)
+
+    dest = SITE / "tasks" / file_name
+    changed = not dest.is_file() or read(dest) != text
+    write(dest, text)
+    save_catalog(catalog)
+    print(f"  {action} {file_name} ({summary['name']}) from {entry['source']}"
+          + ("" if changed else "; copy already matched"))
+    print("Next: python3 site/build.py")
+
+
+def sync_tasks():
+    catalog = load_catalog()
+    validator = load_validator()
+    updated = 0
+    failed = False
+    for entry in catalog["tasks"]:
+        state = source_state(entry)
+        label = entry["file"]
+        if state == "none":
+            print(f"  {label}: no source recorded, kept as is")
+        elif state == "missing":
+            print(f"  {label}: source not found ({entry['source']}), kept as is")
+        elif state == "synced":
+            print(f"  {label}: up to date")
+        else:
+            path = Path(entry["source"]).expanduser()
+            text = read(path)
+            if validate_task_text(validator, text, path.name) is None:
+                failed = True
+                print(f"  {label}: source is not importable, kept as is")
+                continue
+            write(SITE / "tasks" / label, text)
+            updated += 1
+            print(f"  {label}: updated from {entry['source']}")
+    print(f"  {updated} updated")
+    if failed:
+        sys.exit(1)
+    if updated:
+        print("Next: python3 site/build.py")
+
+
+def list_tasks():
+    catalog = load_catalog()
+    labels = {"none": "no source recorded", "missing": "source missing", "stale": "STALE, run sync", "synced": "in sync"}
+    for entry in catalog["tasks"]:
+        dest = SITE / "tasks" / entry["file"]
+        try:
+            name = json.loads(read(dest))["task"]["name"]
+        except (OSError, ValueError, KeyError, TypeError):
+            name = "(unreadable)"
+        chips = ", ".join(entry.get("tags", [])) or "no tags"
+        if entry.get("featured"):
+            chips += " · featured"
+        state = labels[source_state(entry)]
+        if entry.get("source"):
+            state += f" · {entry['source']}"
+        print(f"  {dest.stem}\n      {name}\n      {chips}\n      {state}")
+
+
 def main(argv):
-    check_only = "--check" in argv
+    parser = argparse.ArgumentParser(prog="site/build.py", description="Builds the AITaskRunner website into docs/.")
+    parser.add_argument("--check", action="store_true", help="validate the task catalog only")
+    commands = parser.add_subparsers(dest="command", metavar="command")
+    add = commands.add_parser("add", help="copy a task file into site/tasks/ and the catalog, or refresh one already there")
+    add.add_argument("file", help="an AITaskDefinition .json anywhere on disk")
+    add.add_argument("--slug", help="URL and download name (default: from the task name)")
+    add.add_argument("--description", help="one or two sentences for the card (required for a new task)")
+    add.add_argument("--tags", help="comma-separated keys from catalog.categories")
+    add.add_argument("--featured", action="store_true", help="show on the landing page")
+    add.add_argument("--no-featured", action="store_true", help="remove from the landing page")
+    commands.add_parser("sync", help="re-copy every task whose recorded source file has changed")
+    commands.add_parser("list", help="show the catalog and whether each copy matches its source")
+    args = parser.parse_args(argv)
+
+    if args.command == "add":
+        return add_task(args)
+    if args.command == "sync":
+        return sync_tasks()
+    if args.command == "list":
+        return list_tasks()
+    build(check_only=args.check)
+
+
+def build(check_only=False):
     print("Tasks")
     if check_only:
         build_tasks(check_only=True)

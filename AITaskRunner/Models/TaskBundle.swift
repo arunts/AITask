@@ -10,6 +10,7 @@ import Foundation
 ///   "task": {
 ///     "name": "…", "systemPrompt": "…", "userPrompt": "…",
 ///     "allowsSteering": true,
+///     "requires": ["tools", "vision"],
 ///     "variables": [
 ///       { "key": "input_folder", "type": "folder", "default": "~/Downloads", "description": "Folder to summarise" },
 ///       { "key": "topics", "type": "list", "options": ["weather", "sport"] }
@@ -86,6 +87,8 @@ nonisolated enum TaskBundle {
             "systemPrompt": .string(task.systemPrompt),
             "userPrompt": .string(task.userPrompt),
             "allowsSteering": .bool(task.allowsSteering),
+            // The full set, tool calling included, so the file says what it needs without knowing the rules.
+            "requires": .array(task.effectiveRequirements.sorted().map { .string($0.rawValue) }),
             "variables": .array(task.variables.filter { !$0.key.isEmpty }.map { variable in
                 var object: [String: JSONValue] = ["key": .string(variable.key)]
                 if variable.kind != .text { object["type"] = .string(variable.kind.rawValue) }
@@ -226,13 +229,20 @@ nonisolated enum TaskBundle {
             )
         }
 
+        let requires = ModelCapability.parse(taskJSON["requires"]?.array?.compactMap(\.string) ?? [])
+        if !requires.unknown.isEmpty {
+            let known = ModelCapability.allCases.map(\.rawValue).joined(separator: ", ")
+            warnings.append("Unknown model requirement\(requires.unknown.count == 1 ? "" : "s") ignored: \(requires.unknown.joined(separator: ", ")). This version knows \(known).")
+        }
+
         let task = AgentTask(
             name: taskJSON["name"]?.string ?? "",
             systemPrompt: taskJSON["systemPrompt"]?.string ?? "",
             userPrompt: userPrompt,
             toolAttachments: attachments,
             variables: variables,
-            allowsSteering: taskJSON["allowsSteering"]?.bool ?? false
+            allowsSteering: taskJSON["allowsSteering"]?.bool ?? false,
+            requiredCapabilities: requires.capabilities
         )
         return Imported(task: task, newServers: newServers, reusedServers: reused, warnings: warnings, version: version)
     }

@@ -198,6 +198,9 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
     var variableValues: [String: String]
     /// When on, the run window shows a chat box and the model gets an `ask_user` tool.
     var allowsSteering: Bool
+    /// What the task declares the model must be able to do. Tool calling is implied by attached tools
+    /// and by steering, so it need not be listed; see `effectiveRequirements`.
+    var requiredCapabilities: Set<ModelCapability>
     /// `ModelChoice.rawValue` last picked for this task.
     var preferredModel: String?
     /// Generation settings (temperature, sampling, limits) per provider.
@@ -216,6 +219,7 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
         variables: [TaskVariable] = [],
         variableValues: [String: String] = [:],
         allowsSteering: Bool = false,
+        requiredCapabilities: Set<ModelCapability> = [],
         preferredModel: String? = nil,
         runOptions: RunOptions = RunOptions(),
         schedule: TaskSchedule? = nil,
@@ -230,11 +234,18 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
         self.variables = variables
         self.variableValues = variableValues
         self.allowsSteering = allowsSteering
+        self.requiredCapabilities = requiredCapabilities
         self.preferredModel = preferredModel
         self.runOptions = runOptions
         self.schedule = schedule
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    /// Spelled out because both the decoder and the encoder are written by hand.
+    private enum CodingKeys: String, CodingKey {
+        case id, name, systemPrompt, userPrompt, toolAttachments, variables, variableValues, allowsSteering
+        case requiredCapabilities, preferredModel, runOptions, schedule, createdAt, updatedAt
     }
 
     private enum LegacyKeys: String, CodingKey {
@@ -259,11 +270,32 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
         variables = try c.decodeIfPresent([TaskVariable].self, forKey: .variables) ?? []
         variableValues = try c.decodeIfPresent([String: String].self, forKey: .variableValues) ?? [:]
         allowsSteering = try c.decodeIfPresent(Bool.self, forKey: .allowsSteering) ?? false
+        // Names, not the enum, so a capability added by a newer build does not make the whole file unreadable.
+        requiredCapabilities = ModelCapability.parse(try c.decodeIfPresent([String].self, forKey: .requiredCapabilities) ?? []).capabilities
         preferredModel = try c.decodeIfPresent(String.self, forKey: .preferredModel).map(ModelChoice.canonical)
         runOptions = try c.decodeIfPresent(RunOptions.self, forKey: .runOptions) ?? RunOptions()
         schedule = try c.decodeIfPresent(TaskSchedule.self, forKey: .schedule)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
+    }
+
+    /// Written by hand only so the capability set comes out in a stable order.
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(systemPrompt, forKey: .systemPrompt)
+        try c.encode(userPrompt, forKey: .userPrompt)
+        try c.encode(toolAttachments, forKey: .toolAttachments)
+        try c.encode(variables, forKey: .variables)
+        try c.encode(variableValues, forKey: .variableValues)
+        try c.encode(allowsSteering, forKey: .allowsSteering)
+        try c.encode(requiredCapabilities.sorted().map(\.rawValue), forKey: .requiredCapabilities)
+        try c.encodeIfPresent(preferredModel, forKey: .preferredModel)
+        try c.encode(runOptions, forKey: .runOptions)
+        try c.encodeIfPresent(schedule, forKey: .schedule)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(updatedAt, forKey: .updatedAt)
     }
 
     var displayName: String { name.isEmpty ? "Untitled Task" : name }
@@ -276,6 +308,23 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
 
     /// True when at least one tool is attached, i.e. the model may call tools.
     var usesTools: Bool { !toolAttachments.isEmpty }
+
+    // MARK: - Model requirements
+
+    /// Capabilities the task needs whether or not it says so: attached tools and the `ask_user` tool both need tool calling.
+    var impliedCapabilities: Set<ModelCapability> {
+        usesTools || allowsSteering ? [.tools] : []
+    }
+
+    /// Everything the model must support to run this task: the declared set plus what the tools imply.
+    var effectiveRequirements: Set<ModelCapability> {
+        requiredCapabilities.union(impliedCapabilities)
+    }
+
+    /// Requirements worth pointing out on their own: the declared ones that the tools do not already imply.
+    var declaredRequirements: Set<ModelCapability> {
+        requiredCapabilities.subtracting(impliedCapabilities)
+    }
 
     func attachment(for serverID: UUID) -> ToolAttachment? {
         toolAttachments.first { $0.serverID == serverID }

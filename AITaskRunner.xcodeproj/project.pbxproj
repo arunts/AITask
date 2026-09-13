@@ -6,9 +6,20 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		F415BB30304DD61A00B40DC4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F415BB08304DD61900B40DC4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F415BB0F304DD61900B40DC4;
+			remoteInfo = AITaskRunner;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
-		F415BBA0304DD61A00B40DC4 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Signing.xcconfig; path = Config/Signing.xcconfig; sourceTree = "<group>"; };
 		F415BB10304DD61900B40DC4 /* AITaskRunner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AITaskRunner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F415BB31304DD61A00B40DC4 /* AITaskRunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AITaskRunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F415BBA0304DD61A00B40DC4 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Signing.xcconfig; path = Config/Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -30,10 +41,22 @@
 			path = AITaskRunner;
 			sourceTree = "<group>";
 		};
+		F415BB32304DD61A00B40DC4 /* AITaskRunnerTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AITaskRunnerTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		F415BB0D304DD61900B40DC4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F415BB33304DD61A00B40DC4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -47,6 +70,7 @@
 			isa = PBXGroup;
 			children = (
 				F415BB12304DD61900B40DC4 /* AITaskRunner */,
+				F415BB32304DD61A00B40DC4 /* AITaskRunnerTests */,
 				F415BBA0304DD61A00B40DC4 /* Signing.xcconfig */,
 				F415BB11304DD61900B40DC4 /* Products */,
 			);
@@ -56,6 +80,7 @@
 			isa = PBXGroup;
 			children = (
 				F415BB10304DD61900B40DC4 /* AITaskRunner.app */,
+				F415BB31304DD61A00B40DC4 /* AITaskRunnerTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -85,6 +110,29 @@
 			productReference = F415BB10304DD61900B40DC4 /* AITaskRunner.app */;
 			productType = "com.apple.product-type.application";
 		};
+		F415BB34304DD61A00B40DC4 /* AITaskRunnerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F415BB3A304DD61A00B40DC4 /* Build configuration list for PBXNativeTarget "AITaskRunnerTests" */;
+			buildPhases = (
+				F415BB37304DD61A00B40DC4 /* Sources */,
+				F415BB33304DD61A00B40DC4 /* Frameworks */,
+				F415BB36304DD61A00B40DC4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F415BB35304DD61A00B40DC4 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				F415BB32304DD61A00B40DC4 /* AITaskRunnerTests */,
+			);
+			name = AITaskRunnerTests;
+			packageProductDependencies = (
+			);
+			productName = AITaskRunnerTests;
+			productReference = F415BB31304DD61A00B40DC4 /* AITaskRunnerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -97,6 +145,10 @@
 				TargetAttributes = {
 					F415BB0F304DD61900B40DC4 = {
 						CreatedOnToolsVersion = 26.6;
+					};
+					F415BB34304DD61A00B40DC4 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = F415BB0F304DD61900B40DC4;
 					};
 				};
 			};
@@ -115,12 +167,20 @@
 			projectRoot = "";
 			targets = (
 				F415BB0F304DD61900B40DC4 /* AITaskRunner */,
+				F415BB34304DD61A00B40DC4 /* AITaskRunnerTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		F415BB0E304DD61900B40DC4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F415BB36304DD61A00B40DC4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -137,7 +197,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F415BB37304DD61A00B40DC4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F415BB35304DD61A00B40DC4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F415BB0F304DD61900B40DC4 /* AITaskRunner */;
+			targetProxy = F415BB30304DD61A00B40DC4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		F415BB1B304DD61A00B40DC4 /* Debug */ = {
@@ -267,7 +342,7 @@
 				CODE_SIGN_ENTITLEMENTS = AITaskRunner/AITaskRunner.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -301,7 +376,7 @@
 				CODE_SIGN_ENTITLEMENTS = AITaskRunner/AITaskRunner.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -326,6 +401,48 @@
 			};
 			name = Release;
 		};
+		F415BB38304DD61A00B40DC4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F415BBA0304DD61A00B40DC4 /* Signing.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ArunThotta.AITaskRunnerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AITaskRunner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AITaskRunner";
+			};
+			name = Debug;
+		};
+		F415BB39304DD61A00B40DC4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F415BBA0304DD61A00B40DC4 /* Signing.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ArunThotta.AITaskRunnerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AITaskRunner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AITaskRunner";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -343,6 +460,15 @@
 			buildConfigurations = (
 				F415BB1E304DD61A00B40DC4 /* Debug */,
 				F415BB1F304DD61A00B40DC4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F415BB3A304DD61A00B40DC4 /* Build configuration list for PBXNativeTarget "AITaskRunnerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F415BB38304DD61A00B40DC4 /* Debug */,
+				F415BB39304DD61A00B40DC4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

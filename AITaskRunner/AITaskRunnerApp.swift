@@ -20,12 +20,16 @@ struct AITaskRunnerApp: App {
         settings.applyAppearance()
         settings.applyActivationPolicy()
         let store = TaskStore()
-        let registry = MCPRegistry()
+        // Under a unit-test host the app stays quiet: no server launches, no polling, no scheduled runs.
+        let isTestHost = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("XCTest") }
+        let registry = MCPRegistry(autoConnect: !isTestHost)
         let providers = ProviderHub(settings: settings)
-        providers.startPolling()
         // Scheduled tasks run only while the app is open; the loop lives with the app.
         let scheduler = TaskScheduler(store: store, registry: registry, settings: settings, providers: providers)
-        scheduler.start()
+        if !isTestHost {
+            providers.startPolling()
+            scheduler.start()
+        }
         _settings = State(initialValue: settings)
         _store = State(initialValue: store)
         _registry = State(initialValue: registry)

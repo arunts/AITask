@@ -16,6 +16,36 @@
         "writing"
       ],
       "featured": true
+    },
+    {
+      "file": "find-pii-in-folder.json",
+      "description": "Goes through the PDFs, scans and office documents in a folder one at a time and finds the personal details in each that are yours, guided by a PII list it grows as you confirm items. Asks once per document about anything doubtful.",
+      "tags": [
+        "files",
+        "productivity"
+      ],
+      "featured": true,
+      "source": "~/Documents/Code/LocalAITasks/docs-tasks/Find PII in Folder.json"
+    },
+    {
+      "file": "extract-key-details.json",
+      "description": "Reads each document in a folder and saves your details plus its key dates, amounts and reference numbers, grouped under the issuing organisation, into a plain-text list. Runs unattended and skips duplicates.",
+      "tags": [
+        "files",
+        "productivity"
+      ],
+      "featured": true,
+      "source": "~/Documents/Code/LocalAITasks/docs-tasks/Extract Key Details from Folder.json"
+    },
+    {
+      "file": "convert-documents-to-markdown.json",
+      "description": "Turns every PDF, scan, image and office document in a folder into a Markdown file that keeps each word and the whole structure: headings, lists, tables, page markers and placeholders for figures. Needs a vision model.",
+      "tags": [
+        "files",
+        "writing"
+      ],
+      "featured": true,
+      "source": "~/Documents/Code/LocalAITasks/docs-tasks/Convert Documents to Markdown.json"
     }
   ]
 }

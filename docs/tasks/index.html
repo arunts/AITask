@@ -58,18 +58,37 @@
       <div class="filter-row">
         <span class="label">About</span>
         <button class="chip filter" data-kind="tag" data-value="files" aria-pressed="false">Files &amp; folders</button>
+        <button class="chip filter" data-kind="tag" data-value="productivity" aria-pressed="false">Productivity</button>
         <button class="chip filter" data-kind="tag" data-value="writing" aria-pressed="false">Writing</button>
         <button id="filter-clear" class="filter-clear" hidden>Clear filters</button>
       </div>
     </div>
 
-    <div class="count" id="task-count">1 task</div>
+    <div class="count" id="task-count">4 tasks</div>
     <div class="grid" id="task-list">
       <a class="card task-card" href="../tasks/summarise-notes/" data-slug="summarise-notes">
         <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
         <h3>Summarise Notes Folder</h3>
         <p class="desc">Reads every Markdown and text file at the top of a folder and writes a SUMMARY.md next to them: one paragraph overall, then two sentences per file.</p>
         <div class="meta"><span class="chip tag">Files &amp; folders</span><span class="chip tag">Writing</span></div>
+      </a>
+      <a class="card task-card" href="../tasks/find-pii-in-folder/" data-slug="find-pii-in-folder">
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        <h3>Find PII in Folder</h3>
+        <p class="desc">Goes through the PDFs, scans and office documents in a folder one at a time and finds the personal details in each that are yours, guided by a PII list it grows as you confirm items. Asks once per document about anything doubtful.</p>
+        <div class="meta"><span class="chip tool">MCP · docs</span><span class="chip interactive">Interactive</span><span class="chip tag">Files &amp; folders</span><span class="chip tag">Productivity</span></div>
+      </a>
+      <a class="card task-card" href="../tasks/extract-key-details/" data-slug="extract-key-details">
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        <h3>Extract Key Details from Folder</h3>
+        <p class="desc">Reads each document in a folder and saves your details plus its key dates, amounts and reference numbers, grouped under the issuing organisation, into a plain-text list. Runs unattended and skips duplicates.</p>
+        <div class="meta"><span class="chip tool">MCP · docs</span><span class="chip tag">Files &amp; folders</span><span class="chip tag">Productivity</span></div>
+      </a>
+      <a class="card task-card" href="../tasks/convert-documents-to-markdown/" data-slug="convert-documents-to-markdown">
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        <h3>Convert Documents to Markdown</h3>
+        <p class="desc">Turns every PDF, scan, image and office document in a folder into a Markdown file that keeps each word and the whole structure: headings, lists, tables, page markers and placeholders for figures. Needs a vision model.</p>
+        <div class="meta"><span class="chip tool">MCP · docs</span><span class="chip interactive">Needs vision</span><span class="chip tag">Files &amp; folders</span><span class="chip tag">Writing</span></div>
       </a>
     </div>
     <div class="empty" id="task-empty" hidden>No task matches those filters.</div>
@@ -83,7 +102,7 @@
     </div>
   </div>
 
-  <script id="task-data" type="application/json">[{"slug": "summarise-notes", "name": "Summarise Notes Folder", "description": "Reads every Markdown and text file at the top of a folder and writes a SUMMARY.md next to them: one paragraph overall, then two sentences per file.", "tags": ["files", "writing"], "needs": "app", "interactive": false, "search": "shell notes_folder max_files"}]</script>
+  <script id="task-data" type="application/json">[{"slug": "summarise-notes", "name": "Summarise Notes Folder", "description": "Reads every Markdown and text file at the top of a folder and writes a SUMMARY.md next to them: one paragraph overall, then two sentences per file.", "tags": ["files", "writing"], "needs": "app", "interactive": false, "search": "shell notes_folder max_files tools"}, {"slug": "find-pii-in-folder", "name": "Find PII in Folder", "description": "Goes through the PDFs, scans and office documents in a folder one at a time and finds the personal details in each that are yours, guided by a PII list it grows as you confirm items. Asks once per document about anything doubtful.", "tags": ["files", "productivity"], "needs": "mcp", "interactive": true, "search": "docs context folder pii_file tools"}, {"slug": "extract-key-details", "name": "Extract Key Details from Folder", "description": "Reads each document in a folder and saves your details plus its key dates, amounts and reference numbers, grouped under the issuing organisation, into a plain-text list. Runs unattended and skips duplicates.", "tags": ["files", "productivity"], "needs": "mcp", "interactive": false, "search": "docs context folder output_file tools"}, {"slug": "convert-documents-to-markdown", "name": "Convert Documents to Markdown", "description": "Turns every PDF, scan, image and office document in a folder into a Markdown file that keeps each word and the whole structure: headings, lists, tables, page markers and placeholders for figures. Needs a vision model.", "tags": ["files", "writing"], "needs": "mcp", "interactive": false, "search": "docs context folder output_folder pages_per_call tools vision"}]</script>
 
 
   <footer class="footer">

@@ -50,7 +50,7 @@ struct ModelsSettingsView: View {
                     Label("Add Endpoint", systemImage: "plus")
                 }
             } footer: {
-                Text("Any OpenAI-compatible server: LM Studio, Ollama, llama.cpp, vLLM and others that serve /v1/models and /v1/chat/completions. Models are listed under the endpoint they come from, so two endpoints may serve a model with the same name. Status refreshes on its own.")
+                Text("Any OpenAI-compatible server: LM Studio, Ollama, llama.cpp, vLLM and others that serve /v1/models and /v1/chat/completions. Models are listed under the endpoint they come from, so two endpoints may serve a model with the same name. Status refreshes on its own. Next to each model is what its server says it can do (tool calling, vision, thinking); tasks that need one of those are only run on models that have it.")
                 .textStyle(.callout)
             }
 
@@ -160,11 +160,9 @@ private struct EndpointSection: View {
             }
             if !models.isEmpty {
                 LabeledContent("Models (\(models.count))") {
-                    VStack(alignment: .trailing, spacing: 2) {
+                    VStack(alignment: .trailing, spacing: 4) {
                         ForEach(models, id: \.self) { model in
-                            Text(model)
-                                .textStyle(.callout, design: .monospaced)
-                                .textSelection(.enabled)
+                            ModelCapabilitiesRow(choice: .openAICompatible(endpointID: endpoint.id, model: model))
                         }
                     }
                 }

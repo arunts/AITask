@@ -44,13 +44,14 @@
       <p class="eyebrow">On this page</p>
       <ol>
         <li><a href="#shell-one-tool-run">shell — one tool, run</a></li>
+        <li><a href="#context-one-tool-clear">context — one tool, clear</a></li>
         <li><a href="#ask-user-only-when-allowssteering-is-true">ask_user — only when allowsSteering is true</a></li>
         <li><a href="#renamed-from-bash">Renamed from Bash</a></li>
       </ol>
       <p class="small muted" style="margin-top: 16px">Rendered from <code>skills/ai-task-author/references/builtin-tools.md</code> in the repository.</p>
     </nav>
     <article class="prose">
-<p>The app ships one built-in pack, <strong>Shell</strong>, which appears to the model as <code>shell__run</code>. It needs nothing installed. The user can turn it off in Settings › Tools; an imported task that needs it imports with a warning and fails at run time until it is re-enabled.</p>
+<p>The app ships two built-in packs, <strong>Shell</strong> (<code>shell__run</code>) and <strong>Context</strong> (<code>context__clear</code>). They need nothing installed. The user can turn either off in Settings › Tools; an imported task that needs one imports with a warning and fails at run time until it is re-enabled.</p>
 <h2 id="shell-one-tool-run"><code>shell</code> — one tool, <code>run</code></h2>
 <div class="table-scroll"><table><thead><tr><th>Tool</th><th>What it does</th><th>Arguments (<code>*</code> required)</th></tr></thead><tbody><tr><td><code>run</code></td><td>Runs a command line in the user&#x27;s login shell (<code>zsh -l -c</code>) and returns <code>$ command</code>, cwd, exit code, timing, stdout and stderr.</td><td><code>command*</code>, <code>working_directory</code> (default: the folder set in Settings › Tools), <code>timeout_seconds</code> (Settings default 60, max 600)</td></tr></tbody></table></div>
 <p>Behaviour:</p>
@@ -70,6 +71,25 @@
 <li>Read-only jobs: say &quot;Only run commands that read; never write, move or delete.&quot; The user still approves each command, but the model then stops proposing risky ones.</li>
 <li>Output that must land on disk needs an explicit write step (heredoc); otherwise the result only appears in the run transcript.</li>
 </ul>
+<h2 id="context-one-tool-clear"><code>context</code> — one tool, <code>clear</code></h2>
+<div class="table-scroll"><table><thead><tr><th>Tool</th><th>What it does</th><th>Arguments (<code>*</code> required)</th></tr></thead><tbody><tr><td><code>clear</code></td><td>Drops everything in the conversation except the system prompt, the original user prompt and the note passed in. The model continues from a tool result that repeats the note.</td><td><code>note*</code></td></tr></tbody></table></div>
+<p>Attach it with <code>{ &quot;builtin&quot;: &quot;context&quot; }</code> when one run works through many large inputs one at a time: files in a folder, pages, tickets, records. Without it every file the model reads stays in the conversation, and once one item fills the window the run fails; the app only stubs out <em>older</em> tool results, never the latest.</p>
+<p>Behaviour:</p>
+<ul>
+<li>Only three things survive a clear: the system prompt, the task&#x27;s user prompt (with variables filled in), and the note. Anything the model has not written to disk or put in the note is gone. Tell the prompt to save each item&#x27;s output (heredoc, <code>&gt;&gt;</code>) <em>before</em> clearing.</li>
+<li>A blank note clears nothing and returns an error, so a model that forgets the note keeps its state.</li>
+<li>Tool calls the model issues after <code>context__clear</code> in the same reply still run; ones before it lose their results.</li>
+<li>The round counter restarts, so a run that clears between items is not stopped by the 50-round limit.</li>
+<li>The run window shows the clear as a tool call plus a &quot;Context cleared&quot; notice, and the context gauge drops.</li>
+<li>Not available on the Apple on-device model: the tool is skipped with a notice and the run proceeds without it.</li>
+</ul>
+<p>Recipe for &quot;do X to every file in a folder&quot;, written for small models:</p>
+<pre><code>1. Run shell__run with: find &quot;{{folder}}&quot; -maxdepth 1 -name &#x27;*.md&#x27; | sort
+2. Take the first file not yet done. Run shell__run with: cat &quot;&lt;path&gt;&quot;
+3. Do the job for that file. Write the result with shell__run: cat &gt; &quot;&lt;path&gt;.summary.md&quot; &lt;&lt;&#x27;EOF&#x27; … EOF
+4. Call context__clear with a note like: &quot;Done: a.md, b.md. Remaining: c.md, d.md. Output goes next to each file as &lt;name&gt;.summary.md.&quot;
+5. Repeat from step 2 with the next remaining file. When none remain, reply &quot;All files done.&quot; and stop.</code></pre>
+<p>Put the list of remaining files in the note; after a clear the model no longer remembers the <code>find</code> output.</p>
 <h2 id="ask-user-only-when-allowssteering-is-true"><code>ask_user</code> — only when <code>allowsSteering</code> is <code>true</code></h2>
 <div class="table-scroll"><table><thead><tr><th>Tool</th><th>What it does</th><th>Arguments</th></tr></thead><tbody><tr><td><code>ask_user</code></td><td>Shows a question in the run window and suspends until the user answers (or stops the run).</td><td><code>question*</code></td></tr></tbody></table></div>
 <p>Not attached in <code>tools[]</code>; the app adds it automatically for interactive tasks. Tell the model when to use it (&quot;ask_user before any destructive step&quot;, &quot;if the brief is ambiguous, ask_user once, then proceed&quot;) and when not to (&quot;do not ask for confirmation of read-only steps&quot;). Non-interactive tasks should be written to finish without questions.</p>

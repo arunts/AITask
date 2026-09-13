@@ -225,6 +225,86 @@ nonisolated struct OpenAICompatibleClient: Sendable {
         return nil
     }
 
+    // MARK: - Capabilities
+
+    /// Asks the server what the model can do (tools, vision, thinking), using whichever vendor endpoint answers.
+    /// Returns nil when no endpoint reports anything; a report may still leave some capabilities unknown.
+    func discoverCapabilities(model: String) async -> CapabilityReport? {
+        let root = baseURL.lastPathComponent == "v1" ? baseURL.deletingLastPathComponent() : baseURL
+
+        if let show = await fetch(root.appending(path: "api/show"), body: ["model": .string(model)]),
+           let report = Self.capabilities(fromOllamaShow: show) {
+            return report
+        }
+        if let json = await fetch(root.appending(path: "api/v1/models")),
+           let report = Self.capabilities(fromLMStudio: json, model: model) {
+            return report
+        }
+        if let json = await fetch(root.appending(path: "api/v0/models")),
+           let report = Self.capabilities(fromLMStudio: json, model: model) {
+            return report
+        }
+        if let props = await fetch(root.appending(path: "props")),
+           let report = Self.capabilities(fromLlamaProps: props) {
+            return report
+        }
+        return nil
+    }
+
+    /// Ollama's `/api/show` lists `capabilities` such as `completion`, `tools`, `vision`, `thinking`:
+    /// what is absent from the list is not supported.
+    nonisolated static func capabilities(fromOllamaShow show: JSONValue) -> CapabilityReport? {
+        guard let names = show["capabilities"]?.array?.compactMap(\.string) else { return nil }
+        let listed = Set(names.map { $0.lowercased() })
+        let supported = Set(ModelCapability.allCases.filter { listed.contains($0.rawValue) })
+        return CapabilityReport(supported: supported, unsupported: Set(ModelCapability.allCases).subtracting(supported), source: "Ollama")
+    }
+
+    /// LM Studio lists models under `data` (`/api/v0/models`, with `type` `llm`/`vlm`) or `models` (`/api/v1/models`,
+    /// with a `capabilities` object or list). Only what the entry states is reported; the rest stays unknown.
+    nonisolated static func capabilities(fromLMStudio json: JSONValue, model: String) -> CapabilityReport? {
+        let entries = json["data"]?.array ?? json["models"]?.array ?? []
+        guard let entry = entries.first(where: { $0["id"]?.string == model || $0["key"]?.string == model }) else { return nil }
+        var supported = Set<ModelCapability>()
+        var unsupported = Set<ModelCapability>()
+
+        if let type = entry["type"]?.string?.lowercased() {
+            if type == "vlm" {
+                supported.insert(.vision)
+            } else if type == "llm" {
+                unsupported.insert(.vision)
+            }
+        }
+        let aliases: [ModelCapability: [String]] = [
+            .tools: ["tools", "tool_use", "trained_for_tool_use", "function_calling"],
+            .vision: ["vision", "image_input"],
+            .thinking: ["thinking", "reasoning"],
+        ]
+        if let object = entry["capabilities"]?.object {
+            for (capability, keys) in aliases {
+                for key in keys {
+                    if let value = object[key]?.bool {
+                        if value { supported.insert(capability) } else { unsupported.insert(capability) }
+                    }
+                }
+            }
+        } else if let list = entry["capabilities"]?.array?.compactMap(\.string) {
+            let listed = Set(list.map { $0.lowercased() })
+            for (capability, keys) in aliases {
+                if keys.contains(where: { listed.contains($0) }) { supported.insert(capability) } else { unsupported.insert(capability) }
+            }
+        }
+        unsupported.subtract(supported)
+        guard !supported.isEmpty || !unsupported.isEmpty else { return nil }
+        return CapabilityReport(supported: supported, unsupported: unsupported, source: "LM Studio")
+    }
+
+    /// llama.cpp's `/props` reports `modalities.vision`; nothing about tools or thinking.
+    nonisolated static func capabilities(fromLlamaProps props: JSONValue) -> CapabilityReport? {
+        guard let vision = props["modalities"]?["vision"]?.bool else { return nil }
+        return CapabilityReport(supported: vision ? [.vision] : [], unsupported: vision ? [] : [.vision], source: "llama.cpp")
+    }
+
     private func fetch(_ url: URL, body: JSONValue? = nil) async -> JSONValue? {
         var request = URLRequest(url: url)
         request.timeoutInterval = 4

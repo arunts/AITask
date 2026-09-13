@@ -47,6 +47,7 @@
         <li><a href="#task">task</a></li>
         <li><a href="#variables">Variables</a></li>
         <li><a href="#tools">Tools</a></li>
+        <li><a href="#model-requirements">Model requirements</a></li>
         <li><a href="#mcpservers">mcpServers</a></li>
         <li><a href="#how-the-app-exports">How the app exports</a></li>
         <li><a href="#checklist-before-handing-a-file-over">Checklist before handing a file over</a></li>
@@ -63,6 +64,7 @@
     &quot;systemPrompt&quot;: &quot;You are a concise technical writer. Always reply in Markdown.&quot;,
     &quot;userPrompt&quot;: &quot;1. Run shell__run with: ls {{notes_folder}}/*.md\n2. …&quot;,
     &quot;allowsSteering&quot;: false,
+    &quot;requires&quot;: [&quot;tools&quot;],
     &quot;variables&quot;: [
       { &quot;key&quot;: &quot;notes_folder&quot;, &quot;type&quot;: &quot;folder&quot;, &quot;default&quot;: &quot;~/Notes&quot;, &quot;description&quot;: &quot;Folder whose .md files are summarised&quot; }
     ],
@@ -78,7 +80,7 @@
 <h2 id="top-level">Top level</h2>
 <div class="table-scroll"><table><thead><tr><th>Key</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead><tbody><tr><td><code>format</code></td><td>string</td><td>yes</td><td>Must be exactly <code>&quot;AITaskDefinition&quot;</code>. Files written by earlier versions say <code>&quot;oddjobs-task&quot;</code>; the app still imports those, but always write the new name.</td></tr><tr><td><code>version</code></td><td>integer</td><td>yes</td><td><code>1</code>. Anything else is refused.</td></tr><tr><td><code>task</code></td><td>object</td><td>yes</td><td>See below.</td></tr><tr><td><code>mcpServers</code></td><td>object</td><td>no</td><td>Definitions for every <code>server</code> slug the task attaches. Omit or leave <code>{}</code> when only built-ins are used.</td></tr></tbody></table></div>
 <h2 id="task"><code>task</code></h2>
-<div class="table-scroll"><table><thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Notes</th></tr></thead><tbody><tr><td><code>name</code></td><td>string</td><td><code>&quot;&quot;</code> → shown as &quot;Untitled Task&quot;</td><td>Short, title case. Becomes the sidebar row and window title.</td></tr><tr><td><code>systemPrompt</code></td><td>string</td><td><code>&quot;&quot;</code></td><td>Sent before the user prompt on every run. Variables and tool names are substituted/recognised here too.</td></tr><tr><td><code>userPrompt</code></td><td>string</td><td>—</td><td><strong>Required, non-empty.</strong> The concrete job.</td></tr><tr><td><code>allowsSteering</code></td><td>bool</td><td><code>false</code></td><td><code>true</code> = interactive: the run window shows a chat box and the model gets an <code>ask_user</code> tool.</td></tr><tr><td><code>variables</code></td><td>array</td><td><code>[]</code></td><td>See Variables.</td></tr><tr><td><code>tools</code></td><td>array</td><td><code>[]</code></td><td>See Tools.</td></tr></tbody></table></div>
+<div class="table-scroll"><table><thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Notes</th></tr></thead><tbody><tr><td><code>name</code></td><td>string</td><td><code>&quot;&quot;</code> → shown as &quot;Untitled Task&quot;</td><td>Short, title case. Becomes the sidebar row and window title.</td></tr><tr><td><code>systemPrompt</code></td><td>string</td><td><code>&quot;&quot;</code></td><td>Sent before the user prompt on every run. Variables and tool names are substituted/recognised here too.</td></tr><tr><td><code>userPrompt</code></td><td>string</td><td>—</td><td><strong>Required, non-empty.</strong> The concrete job.</td></tr><tr><td><code>allowsSteering</code></td><td>bool</td><td><code>false</code></td><td><code>true</code> = interactive: the run window shows a chat box and the model gets an <code>ask_user</code> tool.</td></tr><tr><td><code>requires</code></td><td>array of strings</td><td><code>[]</code></td><td>What the model must support: any of <code>&quot;tools&quot;</code>, <code>&quot;vision&quot;</code>, <code>&quot;thinking&quot;</code>. See Model requirements.</td></tr><tr><td><code>variables</code></td><td>array</td><td><code>[]</code></td><td>See Variables.</td></tr><tr><td><code>tools</code></td><td>array</td><td><code>[]</code></td><td>See Tools.</td></tr></tbody></table></div>
 <p>Not part of the file (chosen in the app per machine): model, temperature, top_p, seed, max tokens, stop sequences, schedule, run history.</p>
 <h2 id="variables">Variables</h2>
 <p>Each entry:</p>
@@ -91,13 +93,26 @@
 <pre><code class="language-json">{ &quot;builtin&quot;: &quot;shell&quot; }
 { &quot;server&quot;: &quot;fetch&quot;, &quot;tools&quot;: null }
 { &quot;server&quot;: &quot;github&quot;, &quot;tools&quot;: [&quot;search_issues&quot;, &quot;get_issue&quot;] }</code></pre>
-<div class="table-scroll"><table><thead><tr><th>Key</th><th>Notes</th></tr></thead><tbody><tr><td><code>builtin</code></td><td><code>&quot;shell&quot;</code>. Unknown packs are refused. (<code>&quot;bash&quot;</code>, the pack&#x27;s old name, is still accepted and treated as <code>shell</code>.)</td></tr><tr><td><code>server</code></td><td>Slug of a server defined under <code>mcpServers</code>, or of a server that already exists in the user&#x27;s app.</td></tr><tr><td><code>tools</code></td><td>Array of tool names to expose, or <code>null</code>/omitted for every tool the source offers (including ones added later). Unknown built-in tool names are refused; MCP tool names cannot be checked at import time, so spell them exactly as the server reports them.</td></tr></tbody></table></div>
-<p>The model sees each tool as <code>&lt;slug&gt;__&lt;tool&gt;</code>: <code>shell__run</code>, <code>fetch__fetch</code>. Use those exact names in the prompts; the app highlights them and small models follow explicit names far more reliably than descriptions.</p>
+<div class="table-scroll"><table><thead><tr><th>Key</th><th>Notes</th></tr></thead><tbody><tr><td><code>builtin</code></td><td><code>&quot;shell&quot;</code> or <code>&quot;context&quot;</code>. Unknown packs are refused. (<code>&quot;bash&quot;</code>, the shell pack&#x27;s old name, is still accepted and treated as <code>shell</code>.)</td></tr><tr><td><code>server</code></td><td>Slug of a server defined under <code>mcpServers</code>, or of a server that already exists in the user&#x27;s app.</td></tr><tr><td><code>tools</code></td><td>Array of tool names to expose, or <code>null</code>/omitted for every tool the source offers (including ones added later). Unknown built-in tool names are refused; MCP tool names cannot be checked at import time, so spell them exactly as the server reports them.</td></tr></tbody></table></div>
+<p>The model sees each tool as <code>&lt;slug&gt;__&lt;tool&gt;</code>: <code>shell__run</code>, <code>context__clear</code>, <code>fetch__fetch</code>. Use those exact names in the prompts; the app highlights them and small models follow explicit names far more reliably than descriptions.</p>
 <p>The file&#x27;s top-level <code>version</code> is for the file schema only and stays at 1 until the layout of the file itself changes.</p>
 <p>Order matters only for display. Attaching the same source twice is pointless; the last entry wins.</p>
+<h3 id="how-tool-results-reach-the-model">How tool results reach the model</h3>
+<ul>
+<li>Text content is joined and sent as the tool result; a result longer than about 60 000 characters is cut with a note.</li>
+<li>MCP <strong>image</strong> content (and embedded resources with an <code>image/*</code> blob; PNG, JPEG, WebP, GIF) is kept. An OpenAI-compatible model receives the images as <code>image_url</code> parts in a follow-up <code>user</code> message right after the tool result; the tool result itself keeps a numbered placeholder such as <code>[image 1: image/png]</code>. Up to about 24 MB of image data per result; the rest is dropped with a note.</li>
+<li>A model without vision (the server rejects the images) gets the text placeholder plus a note that images are not shown; the app switches to text-only for the rest of the run and says so in the transcript. Some servers silently ignore images instead of rejecting them. When the task lists <code>vision</code> under <code>requires</code>, a rejected image ends the run instead, and models known to lack vision are never tried.</li>
+<li>The Apple on-device model never receives images; it gets the placeholder and a note.</li>
+<li>Images returned by tools appear as thumbnails in the run window&#x27;s tool calls.</li>
+</ul>
+<h2 id="model-requirements">Model requirements</h2>
+<p><code>requires</code> names what the model must be able to do. The app never runs the task on a model known to lack one of them, marks such models in the picker, and holds a scheduled run until the chosen model qualifies.</p>
+<div class="table-scroll"><table><thead><tr><th>Name</th><th>Means</th><th>When to list it</th></tr></thead><tbody><tr><td><code>tools</code></td><td>The model can call tools.</td><td>Never needed by hand: implied whenever <code>tools</code> is non-empty or <code>allowsSteering</code> is <code>true</code>. Listing it is harmless.</td></tr><tr><td><code>vision</code></td><td>The model accepts image input, so it sees the images tools return (see &quot;How tool results reach the model&quot;) instead of a text placeholder.</td><td>The job depends on looking at screenshots, rendered pages, charts or photos a tool returns.</td></tr><tr><td><code>thinking</code></td><td>The model reasons before answering (Qwen3, DeepSeek-R1, gpt-oss, Gemma 4 and other &quot;thinking&quot; models).</td><td>The job needs multi-step reasoning that plain instruction-tuned models get wrong; the app does not turn thinking on, it only gates on the model.</td></tr></tbody></table></div>
+<p>How the app knows what a model supports: Ollama reports all three per model; LM Studio and llama.cpp report vision; and a run teaches it (a rejected image or tool request, a tool call that came back). A model whose server reports nothing is allowed to run, with a note in the transcript. Unknown names in <code>requires</code> are ignored with a warning on import. Export always writes the full effective set, <code>tools</code> included.</p>
+<pre><code class="language-json">&quot;requires&quot;: [&quot;tools&quot;, &quot;vision&quot;]</code></pre>
 <h2 id="mcpservers"><code>mcpServers</code></h2>
 <p>The same shape Claude Desktop, Cursor, VS Code and Claude Code use. The key is the server&#x27;s name; its <strong>slug</strong> is what the task references.</p>
-<p>Slug rule: lowercase the name; keep ASCII letters, digits and <code>-</code>; every other run of characters becomes a single <code>_</code>; trim <code>_</code> and <code>-</code> from both ends. <code>&quot;Brave Search&quot;</code> → <code>brave_search</code>, <code>&quot;fetch&quot;</code> → <code>fetch</code>. A definition may carry its own <code>&quot;name&quot;</code>, which then replaces the key for both display and slug. Do not use <code>shell</code> (or <code>bash</code>) as a slug; it belongs to the built-in pack.</p>
+<p>Slug rule: lowercase the name; keep ASCII letters, digits and <code>-</code>; every other run of characters becomes a single <code>_</code>; trim <code>_</code> and <code>-</code> from both ends. <code>&quot;Brave Search&quot;</code> → <code>brave_search</code>, <code>&quot;fetch&quot;</code> → <code>fetch</code>. A definition may carry its own <code>&quot;name&quot;</code>, which then replaces the key for both display and slug. Do not use <code>shell</code>, <code>bash</code> or <code>context</code> as a slug; they belong to the built-in packs.</p>
 <p>stdio (a local process):</p>
 <pre><code class="language-json">&quot;fetch&quot;: {
   &quot;type&quot;: &quot;stdio&quot;,
@@ -123,7 +138,7 @@
 </ul>
 <p>Import behaviour: a server whose slug already exists in the app is reused as configured there and the file&#x27;s definition is ignored. Otherwise the definition is added to Settings › Tools with a fresh ID. Definitions that no <code>tools[]</code> entry references are ignored.</p>
 <h2 id="how-the-app-exports">How the app exports</h2>
-<p>File › Export Task… writes exactly this format, with <code>env</code> and <code>headers</code> omitted unless the user ticks &quot;Include environment variables and HTTP headers&quot;. Round-tripping a file through export/import is lossless apart from those secrets and the per-machine fields listed above.</p>
+<p>File › Export Task… writes exactly this format, with <code>env</code> and <code>headers</code> omitted unless the user ticks &quot;Include environment variables and HTTP headers&quot;, and <code>requires</code> filled in with everything the task needs (<code>tools</code> included when any tool is attached). Round-tripping a file through export/import is lossless apart from those secrets and the per-machine fields listed above.</p>
 <h2 id="checklist-before-handing-a-file-over">Checklist before handing a file over</h2>
 <ol>
 <li><code>format</code>, <code>version</code>, <code>task.userPrompt</code> present.</li>
@@ -131,6 +146,7 @@
 <li>Every <code>tools[].server</code> has a matching <code>mcpServers</code> slug (or the user confirmed it exists in their app).</li>
 <li>Every tool name mentioned in the prompts is attached (<code>shell__run</code> needs the <code>shell</code> entry).</li>
 <li><code>ask_user</code> mentioned only when <code>allowsSteering</code> is <code>true</code>.</li>
+<li><code>requires</code> lists <code>vision</code> when the job depends on images a tool returns, and <code>thinking</code> when only a reasoning model will do; otherwise leave it out.</li>
 <li>No secrets in <code>env</code> or <code>headers</code>.</li>
 <li><code>python3 scripts/validate_task.py &lt;file&gt;</code> exits 0.</li>
 </ol>

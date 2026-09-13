@@ -142,6 +142,7 @@ struct BuiltinPackDetailView: View {
             set: { on in
                 switch pack {
                 case .shell: registry.builtinSettings.shellEnabled = on
+                case .context: registry.builtinSettings.contextEnabled = on
                 }
             }
         )
@@ -159,35 +160,37 @@ struct BuiltinPackDetailView: View {
                 .textStyle(.callout)
             }
 
-            Section {
-                Toggle("Ask before running each command", isOn: $registry.builtinSettings.shellRequiresApproval)
-                LabeledContent("Timeout") {
-                    Stepper(value: $registry.builtinSettings.shellTimeoutSeconds, in: 1...600) {
-                        HStack(spacing: 4) {
-                            TextField("Timeout", value: $registry.builtinSettings.shellTimeoutSeconds, format: .number.grouping(.never))
-                                .labelsHidden()
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 56)
-                            Text("seconds")
-                                .foregroundStyle(.secondary)
+            if pack == .shell {
+                Section {
+                    Toggle("Ask before running each command", isOn: $registry.builtinSettings.shellRequiresApproval)
+                    LabeledContent("Timeout") {
+                        Stepper(value: $registry.builtinSettings.shellTimeoutSeconds, in: 1...600) {
+                            HStack(spacing: 4) {
+                                TextField("Timeout", value: $registry.builtinSettings.shellTimeoutSeconds, format: .number.grouping(.never))
+                                    .labelsHidden()
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 56)
+                                Text("seconds")
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
-                }
-                LabeledContent("Start in") {
-                    HStack(spacing: 8) {
-                        Text((registry.builtinSettings.workingDirectory as NSString).abbreviatingWithTildeInPath)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .foregroundStyle(.secondary)
-                            .help(registry.builtinSettings.workingDirectory)
-                        Button("Choose…") { chooseWorkingDirectory() }
+                    LabeledContent("Start in") {
+                        HStack(spacing: 8) {
+                            Text((registry.builtinSettings.workingDirectory as NSString).abbreviatingWithTildeInPath)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .foregroundStyle(.secondary)
+                                .help(registry.builtinSettings.workingDirectory)
+                            Button("Choose…") { chooseWorkingDirectory() }
+                        }
                     }
+                } header: {
+                    Text("Safety")
+                } footer: {
+                    Text("Commands run in your login shell (/bin/zsh -l) and can reach anything your account can. With approval on, each command waits in the run window until you allow or deny it; “Allow All This Run” skips further prompts for that run only. Commands start in the folder above unless the model names another.")
+                    .textStyle(.callout)
                 }
-            } header: {
-                Text("Safety")
-            } footer: {
-                Text("Commands run in your login shell (/bin/zsh -l) and can reach anything your account can. With approval on, each command waits in the run window until you allow or deny it; “Allow All This Run” skips further prompts for that run only. Commands start in the folder above unless the model names another.")
-                .textStyle(.callout)
             }
 
             Section {

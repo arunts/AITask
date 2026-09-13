@@ -58,12 +58,13 @@
 <li>a <strong>user prompt</strong> (the concrete job, required),</li>
 <li><strong>variables</strong> the user fills in before each run, referenced as <code>{{key}}</code>,</li>
 <li><strong>tools</strong> the model may call: the built-in Shell pack, or MCP servers,</li>
-<li>an <strong>interactive</strong> switch that gives the model an <code>ask_user</code> tool and a chat box.</li>
+<li>an <strong>interactive</strong> switch that gives the model an <code>ask_user</code> tool and a chat box,</li>
+<li>what the model must support (<strong>requires</strong>: <code>vision</code> for image input, <code>thinking</code> for reasoning models; tool calling is implied by the tools).</li>
 </ul>
 <p>Your job: interview the user briefly, write the prompts, pick the tools, produce <code>&lt;Name&gt;.json</code>, validate it with the bundled script, and tell them how to import it. Model choice and sampling settings are picked inside the app, never in the file, so do not ask about them.</p>
 <h2 id="tools-a-task-can-use">Tools a task can use</h2>
 <p><strong>Built into the app</strong> (nothing to install; details, arguments and file recipes in <code>references/builtin-tools.md</code>).</p>
-<div class="table-scroll"><table><thead><tr><th>Tool</th><th>Does</th></tr></thead><tbody><tr><td><code>shell__run</code></td><td>Run a command line in the login shell, with per-command approval. Reading, writing, finding and moving files all go through it (<code>ls</code>, <code>cat</code>, <code>find</code>, <code>grep</code>, heredocs, <code>mv</code>).</td></tr><tr><td><code>ask_user</code></td><td>Ask the user a question mid-run (interactive tasks only; not listed in <code>tools</code>)</td></tr></tbody></table></div>
+<div class="table-scroll"><table><thead><tr><th>Tool</th><th>Does</th></tr></thead><tbody><tr><td><code>shell__run</code></td><td>Run a command line in the login shell, with per-command approval. Reading, writing, finding and moving files all go through it (<code>ls</code>, <code>cat</code>, <code>find</code>, <code>grep</code>, heredocs, <code>mv</code>).</td></tr><tr><td><code>context__clear</code></td><td>Drop everything but the system prompt, the task and a note the model writes. For runs that work through many large files or items one at a time; not available on the Apple model.</td></tr><tr><td><code>ask_user</code></td><td>Ask the user a question mid-run (interactive tasks only; not listed in <code>tools</code>)</td></tr></tbody></table></div>
 <p>Shell commands are not confined to a folder; the user approves each one in the run window. Inside the AITaskRunner repo, <code>python3 scripts/list_builtin_tools.py</code> prints the live list from the Swift sources; <code>--check</code> confirms the validator agrees with them.</p>
 <p><strong>When the shell is not enough</strong>, read <code>references/mcp-servers.md</code>: it has a ladder (built-in shell → servers the user already has → known servers → search the MCP registry → say no and offer a shell fallback), a table of known servers with ready-made definitions, and how to verify a server and its tool names before writing them into a file. Never invent a server or tool name from memory; confirm it first.</p>
 <h2 id="workflow">Workflow</h2>
@@ -72,7 +73,8 @@
 <ul>
 <li>what changes from run to run → <strong>variables</strong> (text, file, folder or list),</li>
 <li>what the model has to touch → <strong>tools</strong> (none, Shell, an MCP server),</li>
-<li>whether it needs to check in mid-run → <strong>interactive</strong>.</li>
+<li>whether it needs to check in mid-run → <strong>interactive</strong>,</li>
+<li>whether it depends on seeing images a tool returns → <code>&quot;requires&quot;: [&quot;vision&quot;]</code>, or on a reasoning model → <code>&quot;requires&quot;: [&quot;thinking&quot;]</code>. Leave <code>requires</code> out otherwise; the app adds tool calling by itself.</li>
 </ul>
 <h3 id="2-ask-only-what-changes-the-file">2. Ask only what changes the file</h3>
 <p>Put every open question in one message and suggest a default for each, so &quot;looks good&quot; is a complete answer. Skip anything the description already settles. Typical questions:</p>
@@ -94,22 +96,24 @@
 <h3 id="4-pick-tools">4. Pick tools</h3>
 <ul>
 <li>Prefer the built-in shell: <code>{ &quot;builtin&quot;: &quot;shell&quot; }</code>. It runs commands with per-command approval and covers files, git, brew, curl and anything else with a CLI. Recipes are in <code>references/builtin-tools.md</code>.</li>
+<li>When one run must process many large inputs one after another (every file in a folder, every page), add <code>{ &quot;builtin&quot;: &quot;context&quot; }</code> and tell the prompt exactly when to call <code>context__clear</code> and what to put in the note (done, remaining, where output went). Save each item&#x27;s output to disk first; the note is all the model keeps. The recipe is in <code>references/builtin-tools.md</code>.</li>
 <li>Add an MCP server only when the shell cannot do it well, following the ladder in <code>references/mcp-servers.md</code>. Define it under <code>mcpServers</code> in the same shape Claude Desktop uses; the task refers to it by its slug. Tell the user what runtime to install (Node for <code>npx</code>, uv for <code>uvx</code>).</li>
 <li>Never put API keys or tokens in the file. Leave <code>env</code> and <code>headers</code> out, and tell the user to add them in Settings › Tools after importing. If a header is structurally required, use an obvious placeholder such as <code>REPLACE_ME</code>.</li>
+<li>If a tool returns images the job depends on (screenshots, rendered PDF pages, charts), add <code>&quot;requires&quot;: [&quot;vision&quot;]</code> so the app offers only vision models and refuses the rest. Add <code>&quot;thinking&quot;</code> only when the job genuinely needs a reasoning model; it narrows the models the user can pick.</li>
 </ul>
 <h3 id="5-write-validate-deliver">5. Write, validate, deliver</h3>
 <ol>
 <li>Write <code>&lt;Task Name&gt;.json</code>, pretty-printed UTF-8, in the working directory or wherever the user asked.</li>
 <li><p>Run the validator and fix every error. Keep a warning only when it is intentional, and say why.</p>
 <pre><code class="language-bash">python3 &lt;skill-dir&gt;/scripts/validate_task.py &quot;&lt;file&gt;&quot;</code></pre></li>
-<li>Report: a short summary (what it does, its variables, its tools, whether it is interactive), the validator output, and the file path.</li>
+<li>Report: a short summary (what it does, its variables, its tools, whether it is interactive, what the model must support), the validator output, and the file path.</li>
 <li>Import instructions for the user: in AITaskRunner choose File › Import Task… (⌘⇧I) or the + button above the task list, pick the file, check the preview, and click Import Task. Servers the file defines are added automatically. Then pick a model in the toolbar and press Run (⌘R); variables are asked for before each run.</li>
 </ol>
 <h2 id="what-the-importer-refuses-errors">What the importer refuses (errors)</h2>
 <ul>
 <li>Missing <code>&quot;format&quot;: &quot;AITaskDefinition&quot;</code>, <code>&quot;version&quot;: 1</code>, or a <code>&quot;task&quot;</code> object. (<code>&quot;oddjobs-task&quot;</code>, the old name, still imports.)</li>
 <li>Empty <code>task.userPrompt</code>.</li>
-<li>A <code>tools[]</code> entry that is neither <code>{&quot;builtin&quot;: &quot;shell&quot;, ...}</code> nor <code>{&quot;server&quot;: &quot;&lt;slug&gt;&quot;, ...}</code>, an unknown built-in pack, or an unknown built-in tool name.</li>
+<li>A <code>tools[]</code> entry that is neither <code>{&quot;builtin&quot;: &quot;shell&quot; | &quot;context&quot;, ...}</code> nor <code>{&quot;server&quot;: &quot;&lt;slug&gt;&quot;, ...}</code>, an unknown built-in pack, or an unknown built-in tool name.</li>
 <li>A <code>server</code> slug with no definition under <code>mcpServers</code> (unless a server with that slug already exists in the app).</li>
 <li>An <code>mcpServers</code> definition without <code>command</code> (stdio) or <code>url</code> (http).</li>
 </ul>
@@ -119,9 +123,10 @@
 <li>Variable keys are sanitized to letters, digits, <code>_</code>, <code>.</code>, <code>-</code>; spaces become <code>_</code>. Use the sanitized form in the prompts.</li>
 <li><code>tools[].server</code> must equal the slug of the <code>mcpServers</code> key: lowercase, <code>a-z</code>, <code>0-9</code> and <code>-</code> kept, everything else becomes <code>_</code>. Lowercase keys avoid surprises.</li>
 <li>If the app already has a server with the same slug, the file&#x27;s definition is ignored and the existing one is reused.</li>
-<li>The Shell pack can be turned off in Settings › Tools; the import succeeds with a warning.</li>
+<li>The Shell and Context packs can be turned off in Settings › Tools; the import succeeds with a warning.</li>
 <li><code>tools: null</code> (or omitted) means every tool the server offers, including ones added later.</li>
 <li><code>&quot;builtin&quot;: &quot;bash&quot;</code> (the pack&#x27;s old name) still imports as Shell, but prompts must say <code>shell__run</code>.</li>
+<li>A name in <code>requires</code> other than <code>tools</code>, <code>vision</code> or <code>thinking</code> is dropped with a warning.</li>
 </ul>
 <h2 id="examples">Examples</h2>
 <p>Four complete files live in <code>assets/examples/</code>: prompt-only, Shell for files, Shell plus interactive, and an MCP server. Start from the closest one and adapt it rather than writing from scratch.</p>

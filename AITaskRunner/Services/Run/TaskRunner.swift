@@ -6,6 +6,23 @@ protocol RunEngine: AnyObject {
     func runTurn(userInput: String) async throws
 }
 
+/// Why a run could not start, or go on, with the chosen model.
+nonisolated enum CapabilityError: LocalizedError {
+    /// The model is known to lack something the task requires.
+    case unsupported(model: String, capabilities: [ModelCapability])
+    /// The task requires vision and the server refused the images.
+    case imagesRejected(model: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .unsupported(let model, let capabilities):
+            return "This task needs \(capabilities.listed), which \(model) does not support. Pick another model."
+        case .imagesRejected(let model):
+            return "This task needs vision, but \(model) rejected the images. Pick a vision model."
+        }
+    }
+}
+
 /// Coordinates one execution of a task: MCP connections, the model engine, the transcript and steering.
 /// Lives only as long as its window; nothing here is persisted.
 @Observable
@@ -195,6 +212,17 @@ final class TaskRunner {
     private func prepareAndRun() async {
         do {
             status = .preparing
+            // A model known to lack something the task needs is not tried at all; one nobody has an answer for is.
+            let requirements = task.effectiveRequirements
+            if !requirements.isEmpty {
+                let report = await providers.capabilities(for: model)
+                let missing = report.unsupported(among: requirements)
+                guard missing.isEmpty else { throw CapabilityError.unsupported(model: modelTitle, capabilities: missing) }
+                let unreported = report.unreported(among: requirements)
+                if !unreported.isEmpty {
+                    addNotice("\(modelTitle) does not say whether it supports \(unreported.listed). Continuing anyway.")
+                }
+            }
             let toolbox = try await ToolBox.make(task: task, registry: registry, runner: self)
             toolNames = toolbox.entries.map(\.id) + (toolbox.includesAskUser ? [ToolBox.askUserName] : [])
             if !toolbox.entries.isEmpty {
@@ -216,7 +244,8 @@ final class TaskRunner {
                 contextWindow = await providers.contextWindow(for: model)
                 engine = OpenAIEngine(
                     runner: self, toolbox: toolbox, client: client, model: id, systemPrompt: systemPrompt,
-                    options: task.runOptions.openAICompatible, contextWindow: contextWindow?.tokens
+                    options: task.runOptions.openAICompatible, contextWindow: contextWindow?.tokens,
+                    requiresVision: requirements.contains(.vision)
                 )
             }
             self.engine = engine
@@ -246,12 +275,18 @@ final class TaskRunner {
             status = .stopped
             addNotice("Stopped.")
         } else {
+            if OpenAIEngine.isToolRejection(error) { noteCapability(.tools, supported: false) }
             status = .failed(error.localizedDescription)
             blocks.append(RunBlock(role: .error, text: error.localizedDescription))
         }
     }
 
     // MARK: - Engine callbacks
+
+    /// Engines call this when a request shows what the model can or cannot do, so later runs are gated on it.
+    func noteCapability(_ capability: ModelCapability, supported: Bool) {
+        providers.learn(capability, supported: supported, for: model)
+    }
 
     func beginAssistant() -> RunBlock {
         let block = RunBlock(role: .assistant)
@@ -278,6 +313,7 @@ final class TaskRunner {
 
     func finishToolCall(_ block: RunBlock, result: MCPToolResult) {
         block.toolResult = result.text
+        block.toolImages = result.images
         block.toolIsError = result.isError
         block.isStreaming = false
     }

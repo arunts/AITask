@@ -31,13 +31,29 @@ struct TaskSummaryView: View {
         return choice
     }
 
+    /// Requirements the selected model is known not to meet.
+    private var missingCapabilities: [ModelCapability] {
+        guard let selectedChoice else { return [] }
+        return providers.knownCapabilities(for: selectedChoice).unsupported(among: task.effectiveRequirements)
+    }
+
+    /// Requirements nobody has an answer for with the selected model.
+    private var unreportedCapabilities: [ModelCapability] {
+        guard let selectedChoice else { return [] }
+        return providers.knownCapabilities(for: selectedChoice).unreported(among: task.effectiveRequirements)
+    }
+
     private var canRun: Bool {
         selectedChoice != nil
             && !task.userPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && missingCapabilities.isEmpty
     }
 
     private var runHelp: String {
         if canRun { return "Run this task (⌘R)" }
+        if let selectedChoice, !missingCapabilities.isEmpty {
+            return "\(selectedChoice.displayName) does not support \(missingCapabilities.listed)"
+        }
         return "Pick an available model to run"
     }
 
@@ -122,6 +138,16 @@ struct TaskSummaryView: View {
                     referenceSummary
                         .textStyle(.callout)
                 }
+                if !task.effectiveRequirements.isEmpty {
+                    GroupedSection {
+                        requirementRows
+                    } header: {
+                        Text("Model requirements")
+                    } footer: {
+                        requirementsFootnote
+                            .textStyle(.callout)
+                    }
+                }
                 if !task.variables.isEmpty {
                     GroupedSection {
                         variableRows
@@ -160,6 +186,12 @@ struct TaskSummaryView: View {
         .navigationSubtitle(subtitle)
         .toolbar { toolbarContent }
         .task(id: measureKey) { await measureContext() }
+        .task(id: selectedModel) {
+            // Make sure the endpoint has been asked about this model, so the requirement rows are not stuck on "Not reported".
+            if let choice = selectedChoice, !task.effectiveRequirements.isEmpty {
+                _ = await providers.capabilities(for: choice)
+            }
+        }
         .onChange(of: providers.choices) { pickDefaultModelIfNeeded() }
         .onAppear { pickDefaultModelIfNeeded() }
         .sheet(isPresented: $showRunSheet) {
@@ -236,6 +268,51 @@ struct TaskSummaryView: View {
                 Text("The prompts name \(references.count.counted("tool")): \(listed). Not among the attached tools: \(unknown.joined(separator: ", ")).")
                     .foregroundStyle(.red)
             }
+        }
+    }
+
+    private var requirementRows: some View {
+        let requirements = task.effectiveRequirements.sorted()
+        return ForEach(Array(requirements.enumerated()), id: \.element) { index, capability in
+            if index > 0 { Divider().padding(.leading, 12) }
+            LabeledContent {
+                if let choice = selectedChoice {
+                    CapabilityStatusLabel(choice: choice, capability: capability)
+                } else {
+                    Text("Choose a model")
+                        .foregroundStyle(.secondary)
+                }
+            } label: {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(capability.label)
+                        if task.impliedCapabilities.contains(capability) {
+                            Text(task.usesTools ? "Needed for the attached tools" : "Needed for the ask_user tool")
+                                .textStyle(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } icon: {
+                    Image(systemName: capability.symbol)
+                }
+            }
+            .groupedRow()
+        }
+    }
+
+    @ViewBuilder
+    private var requirementsFootnote: some View {
+        if let choice = selectedChoice {
+            if !missingCapabilities.isEmpty {
+                Text("Run is off: \(choice.displayName) does not support \(missingCapabilities.listed). Pick another model.")
+                    .foregroundStyle(.red)
+            } else if !unreportedCapabilities.isEmpty {
+                Text("The endpoint does not say whether \(choice.displayName) supports \(unreportedCapabilities.listed). The run goes ahead anyway.")
+            } else {
+                Text("What the model must support. Models known to lack any of it are marked in the picker and refused at run time.")
+            }
+        } else {
+            Text("Choose a model in the toolbar to check it against these.")
         }
     }
 
@@ -424,7 +501,8 @@ struct TaskSummaryView: View {
                 ModelPickerOptions(
                     choices: providers.choices,
                     unavailable: selectedModel,
-                    noneTitle: selectedModel.isEmpty && !providers.choices.isEmpty ? "Choose a model" : nil
+                    noneTitle: selectedModel.isEmpty && !providers.choices.isEmpty ? "Choose a model" : nil,
+                    requirements: task.effectiveRequirements
                 )
             }
             .labelsHidden()
@@ -490,12 +568,15 @@ struct TaskSummaryView: View {
         }
     }
 
+    /// Prefers the remembered default, then the first model not known to lack something the task needs.
     private func pickDefaultModelIfNeeded() {
         guard selectedChoice == nil, !providers.choices.isEmpty else { return }
-        if let remembered = ModelChoice(rawValue: settings.defaultModel), providers.choices.contains(remembered) {
+        let requirements = task.effectiveRequirements
+        let usable = providers.choices.filter { providers.knownCapabilities(for: $0).satisfies(requirements) }
+        if let remembered = ModelChoice(rawValue: settings.defaultModel), usable.contains(remembered) {
             modelSelection.wrappedValue = remembered.rawValue
         } else if selectedModel.isEmpty {
-            modelSelection.wrappedValue = providers.choices[0].rawValue
+            modelSelection.wrappedValue = (usable.first ?? providers.choices[0]).rawValue
         }
     }
 

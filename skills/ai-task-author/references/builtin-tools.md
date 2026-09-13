@@ -1,6 +1,6 @@
 # Built-in tools and `ask_user`
 
-The app ships one built-in pack, **Shell**, which appears to the model as `shell__run`. It needs nothing installed. The user can turn it off in Settings › Tools; an imported task that needs it imports with a warning and fails at run time until it is re-enabled.
+The app ships two built-in packs, **Shell** (`shell__run`) and **Context** (`context__clear`). They need nothing installed. The user can turn either off in Settings › Tools; an imported task that needs one imports with a warning and fails at run time until it is re-enabled.
 
 ## `shell` — one tool, `run`
 
@@ -35,6 +35,34 @@ Prompt tips:
 - One command per step. Small models handle "Run `ls …`. Then for each file run `cat …`" far better than a single pipeline that does everything.
 - Read-only jobs: say "Only run commands that read; never write, move or delete." The user still approves each command, but the model then stops proposing risky ones.
 - Output that must land on disk needs an explicit write step (heredoc); otherwise the result only appears in the run transcript.
+
+## `context` — one tool, `clear`
+
+| Tool | What it does | Arguments (`*` required) |
+|---|---|---|
+| `clear` | Drops everything in the conversation except the system prompt, the original user prompt and the note passed in. The model continues from a tool result that repeats the note. | `note*` |
+
+Attach it with `{ "builtin": "context" }` when one run works through many large inputs one at a time: files in a folder, pages, tickets, records. Without it every file the model reads stays in the conversation, and once one item fills the window the run fails; the app only stubs out *older* tool results, never the latest.
+
+Behaviour:
+- Only three things survive a clear: the system prompt, the task's user prompt (with variables filled in), and the note. Anything the model has not written to disk or put in the note is gone. Tell the prompt to save each item's output (heredoc, `>>`) *before* clearing.
+- A blank note clears nothing and returns an error, so a model that forgets the note keeps its state.
+- Tool calls the model issues after `context__clear` in the same reply still run; ones before it lose their results.
+- The round counter restarts, so a run that clears between items is not stopped by the 50-round limit.
+- The run window shows the clear as a tool call plus a "Context cleared" notice, and the context gauge drops.
+- Not available on the Apple on-device model: the tool is skipped with a notice and the run proceeds without it.
+
+Recipe for "do X to every file in a folder", written for small models:
+
+```
+1. Run shell__run with: find "{{folder}}" -maxdepth 1 -name '*.md' | sort
+2. Take the first file not yet done. Run shell__run with: cat "<path>"
+3. Do the job for that file. Write the result with shell__run: cat > "<path>.summary.md" <<'EOF' … EOF
+4. Call context__clear with a note like: "Done: a.md, b.md. Remaining: c.md, d.md. Output goes next to each file as <name>.summary.md."
+5. Repeat from step 2 with the next remaining file. When none remain, reply "All files done." and stop.
+```
+
+Put the list of remaining files in the note; after a clear the model no longer remembers the `find` output.
 
 ## `ask_user` — only when `allowsSteering` is `true`
 

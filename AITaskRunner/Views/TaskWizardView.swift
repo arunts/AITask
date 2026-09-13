@@ -24,6 +24,7 @@ struct TaskWizardView: View {
     let draft: TaskDraft
 
     @Environment(TaskStore.self) private var store
+    @Environment(ProviderHub.self) private var providers
     @State private var task: AgentTask
     @State private var step: Step = .identity
     @State private var confirmDiscard = false
@@ -63,8 +64,13 @@ struct TaskWizardView: View {
     }
 
     private var scheduleProblem: String? {
-        if task.canBeScheduled, task.schedule != nil, task.preferredModel == nil {
+        guard task.canBeScheduled, task.schedule != nil else { return nil }
+        guard let raw = task.preferredModel, let choice = ModelChoice(rawValue: raw) else {
             return "Choose a model for the schedule"
+        }
+        let missing = providers.knownCapabilities(for: choice).unsupported(among: task.effectiveRequirements)
+        if !missing.isEmpty {
+            return "\(choice.displayName) does not support \(missing.listed)"
         }
         return nil
     }
@@ -427,13 +433,16 @@ private struct ScheduleStep: View {
                         }
                     }
                     Picker("Model", selection: model) {
-                        ModelPickerOptions(choices: providers.choices, unavailable: task.preferredModel, noneTitle: "Choose a model")
+                        ModelPickerOptions(
+                            choices: providers.choices, unavailable: task.preferredModel, noneTitle: "Choose a model",
+                            requirements: task.effectiveRequirements
+                        )
                     }
                 } header: {
                     Text("How often, and with which model")
                 } footer: {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("The first run is one interval after you save; later runs follow one interval after the previous run ends. A run starts only while this model is available, otherwise it waits. Variables use the values from the last run, or their defaults.")
+                        Text("The first run is one interval after you save; later runs follow one interval after the previous run ends. A run starts only while this model is available and supports what the task needs, otherwise it waits. Variables use the values from the last run, or their defaults.")
                         if usesShell {
                             Label("This task can run shell commands. In a scheduled run they run without asking for your approval.", systemImage: "exclamationmark.triangle")
                                 .foregroundStyle(.orange)
@@ -464,6 +473,7 @@ private struct ComposerSidePanel: View {
             VStack(alignment: .leading, spacing: 24) {
                 toolsSection
                 variablesSection
+                requirementsSection
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -556,6 +566,20 @@ private struct ComposerSidePanel: View {
         }
     }
 
+    private var requirementsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Model requirements")
+                .textStyle(.headline)
+            Text("What the model must support. Models known to lack any of it are marked in the picker and never run this task.")
+                .textStyle(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(ModelCapability.allCases) { capability in
+                RequirementToggle(task: $task, capability: capability)
+            }
+        }
+    }
+
     private func addVariable() {
         var key = "variable"
         var counter = 2
@@ -569,6 +593,48 @@ private struct ComposerSidePanel: View {
             try? await Task.sleep(for: .milliseconds(60))
             focusedVariable = variable.id
         }
+    }
+}
+
+/// One capability the task may demand. Tool calling is ticked and locked while the task attaches tools
+/// or is interactive, because both need it whether or not the task says so.
+private struct RequirementToggle: View {
+    @Binding var task: AgentTask
+    let capability: ModelCapability
+
+    private var isImplied: Bool { task.impliedCapabilities.contains(capability) }
+
+    private var isOn: Binding<Bool> {
+        Binding(
+            get: { isImplied || task.requiredCapabilities.contains(capability) },
+            set: { on in
+                if on {
+                    task.requiredCapabilities.insert(capability)
+                } else {
+                    task.requiredCapabilities.remove(capability)
+                }
+            }
+        )
+    }
+
+    private var hint: String {
+        guard isImplied else { return capability.explanation }
+        return task.usesTools ? "Needed for the attached tools." : "Needed for the ask_user tool of an interactive task."
+    }
+
+    var body: some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(capability.label, systemImage: capability.symbol)
+                Text(hint)
+                    .textStyle(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .toggleStyle(.checkbox)
+        .disabled(isImplied)
+        .help(isImplied ? "Always on while the task uses tools" : capability.explanation)
     }
 }
 

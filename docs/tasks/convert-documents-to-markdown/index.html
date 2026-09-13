@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Convert Documents to Markdown · AITaskRunner task</title>
+<meta name="description" content="Turns every PDF, scan, image and office document in a folder into a Markdown file that keeps each word and the whole structure: headings, lists, tables, page markers and placeholders for figures. Needs a vision model.">
+<meta property="og:title" content="Convert Documents to Markdown · AITaskRunner task">
+<meta property="og:description" content="Turns every PDF, scan, image and office document in a folder into a Markdown file that keeps each word and the whole structure: headings, lists, tables, page markers and placeholders for figures. Needs a vision model.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="../../assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="128x128" href="../../assets/icon-128.png">
+<link rel="apple-touch-icon" href="../../assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../../assets/site.css?v=50229b803f">
+</head>
+<body>
+<div class="sheet">
+  <nav class="nav">
+    <a class="brand" href="../../">
+      <img src="../../assets/icon-128.png" alt="" width="34" height="34">
+      <span><b>AITaskRunner</b><small>Saved tasks for local models</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="../../#why" >Why</a>
+      <a href="../../tasks/" aria-current="page">Tasks</a>
+      <a href="../../spec/" >Spec</a>
+      <a href="../../skill/" >Skill</a>
+      <a href="https://github.com/arunts/AITask">GitHub</a>
+      <a class="btn btn-primary" href="../../downloads/AITaskRunner.dmg">Download</a>
+    </div>
+  </nav>
+
+  <header class="page-head">
+    <div class="crumbs"><a href="../../tasks/">Tasks</a><span>›</span>Convert Documents to Markdown</div>
+    <h1>Convert Documents to Markdown</h1>
+    <p class="lede">Turns every PDF, scan, image and office document in a folder into a Markdown file that keeps each word and the whole structure: headings, lists, tables, page markers and placeholders for figures. Needs a vision model.</p>
+    <div class="chips" style="margin-top: 16px"><span class="chip tool">MCP · docs</span><span class="chip interactive">Needs vision</span><span class="chip var">3 variables</span><a class="chip tag" href="../../tasks/?tag=files">Files &amp; folders</a><a class="chip tag" href="../../tasks/?tag=writing">Writing</a></div>
+  </header>
+
+  <div class="task-layout">
+    <article class="prose">
+      <div class="prompt-label"><h3>System prompt</h3><span class="muted">Sent before the user prompt on every run</span></div>
+      <div class="prompt">You are a document conversion specialist working for the user. You turn documents (PDFs, scans, photos of pages, DOCX, text files) into Markdown files that keep every word and the whole structure of the original. You decide everything yourself; nobody is available to answer questions. Always read a document with <span class="tool">docs__read_document</span> before converting it; never rely on memory of a file and never invent, summarise, shorten or reorder content. The tool returns the document text with &#x27;===== Page N =====&#x27; markers and, for PDFs, one image per page; image files come as the image alone. Use both sources, each for what it is good at: the TEXT is the source of the characters, so copy words, numbers, names and codes from it exactly; the IMAGE is the source of the structure, so take from it what the text cannot show: heading levels (size and weight), bold and italic, lists and their nesting, tables and their columns, which label belongs to which value, reading order of multi-column pages, captions, footnotes, checkboxes, signatures and figures. When there is no text layer (image files, scanned pages, or a warning that says so) transcribe everything from the image, character by character; write [illegible] for anything you cannot read with certainty and never guess. Output rules. Write GitHub-flavoured Markdown, nothing else: no code fence around the document, no commentary, no notes about the conversion, and keep the document&#x27;s own language. Begin the file with one &#x27;# &#x27; heading holding the document title (first part of a document only); use &#x27;## &#x27;, &#x27;### &#x27; and deeper for the document&#x27;s own heading hierarchy, never for emphasis. Keep paragraphs as paragraphs: join the lines that were only wrapped inside a paragraph, keep one blank line between paragraphs. Keep meaningful line breaks (address blocks, sender and recipient blocks, signature blocks, poetry) by ending each such line with a backslash. Lists become &#x27;- &#x27; or &#x27;1. &#x27; items with the original nesting. Tables become pipe tables with a header row and one row per original row; repeat a value where cells were merged, and keep the column order. Form-style label/value pairs become &#x27;**Label:** value&#x27; lines; checkboxes become &#x27;- [x] &#x27; or &#x27;- [ ] &#x27;. Emphasis becomes **bold** and *italic*. Footnotes use &#x27;[^1]&#x27; markers with the note text at the end of the page. Quoted passages become &#x27;&gt; &#x27; blocks. Figures, charts, logos, stamps, photos and signatures cannot be copied: put an italic placeholder where each one stands, such as *[Figure: bar chart of monthly balance, Jan–Jun 2026]* or *[Signature: Maria Chen]*, and when a chart or diagram shows legible labels or values, add them as a list or table right after the placeholder so no information is lost. Begin each page&#x27;s content with &#x27;&lt;!-- page N --&gt;&#x27; on its own line. Drop what only exists because of paper: repeated running headers and footers, &#x27;Page 2 of 5&#x27; counters, blank space; keep a letterhead once, at the top. A paragraph, list or table that continues across a page break continues after the marker without repeating the table header. Large inputs arrive in parts: <span class="tool">docs__read_document</span> shows at most the pages you ask for and ends with the exact call for the next part (pages=&quot;5-8&quot;, or an offset). Convert only the pages shown, save them with <span class="tool">docs__write_markdown</span> (append: false for the first part of a document, append: true for every later part), then call <span class="tool">context__clear</span> with a note that names the document, its output path, the pages saved, what the last block was (mid-paragraph, mid-list, or a table with its column names) and the exact next call; the note is all you will remember, so continue the next part from it and finish an unfinished block before starting a new one. Work on exactly one document, or one part of one, at a time. Put the Markdown only into the <span class="tool">docs__write_markdown</span> call, never into your reply. Reply in one short line per finished document.</div>
+
+      <div class="prompt-label"><h3>User prompt</h3><span class="muted">Sent each run with the variables filled in</span></div>
+      <div class="prompt">1. Call <span class="tool">docs__list_documents</span> with folder: <span class="var">{{folder}}</span>. Ignore any file whose name ends in .md or .markdown. If no document is left, reply &quot;No documents found in <span class="var">{{folder}}</span>.&quot; and stop.
+2. Take the first document that is not yet done, or the next part of the document in progress. Call <span class="tool">docs__read_document</span> with path: &lt;that document&gt; and max_pages: <span class="var">{{pages_per_call}}</span>, adding the pages or offset named by the previous part&#x27;s &quot;Next part&quot; line if there is one. Work only on the pages shown now.
+3. Convert the shown pages to Markdown following the rules: text for the characters, page images for the structure; a &#x27;&lt;!-- page N --&gt;&#x27; line before each page; headings, lists, tables, label/value lines, emphasis and placeholders for figures. Nothing left out, nothing added. The output path is <span class="var">{{output_folder}}</span>/&lt;file name without its extension&gt;.md (for example /path/to/statement.pdf becomes <span class="var">{{output_folder}}</span>/statement.md).
+4. Call <span class="tool">docs__write_markdown</span> with path: &lt;output path&gt;, content: &lt;the Markdown for these pages&gt;, and append: false for the first part of a document or true for every later part. Do not print the Markdown in your reply.
+5. Call <span class="tool">context__clear</span> with a note in this form: &quot;Done: bank-statement-letter.pdf -&gt; /out/bank-statement-letter.md (2 pages); scanned-notice.jpg -&gt; /out/scanned-notice.md (1 page). In progress: /full/path/big.pdf -&gt; /out/big.md, pages 1-4 saved, last block: table with columns Date | Description | Amount, next call pages=\&quot;5-8\&quot;. Remaining: /full/path/next.pdf, /full/path/other.jpg.&quot; List every remaining document with its full path, and for a document that still has parts left the exact next call.
+6. Repeat from step 2 with the next part of the document in progress, or with the next remaining document. When no document and no part remains, reply with one line per document (&quot;&lt;file name&gt; -&gt; &lt;output path&gt;: N pages&quot;) and stop.</div>
+
+      <h3>Variables</h3>
+      <p class="muted small">The app asks for these before each run. Defaults are pre-filled; the values you last used are remembered.</p>
+      <div class="table-scroll"><table><thead><tr><th>Placeholder</th><th>Type</th><th>Default</th><th>What to enter</th></tr></thead><tbody><tr><td><code class="var-key">{{folder}}</code></td><td>folder</td><td><code>~/Documents/Inbox</code></td><td>Folder whose documents are converted one by one: PDF, images (PNG, JPEG, TIFF), DOCX, ODT, EPUB, TXT, CSV, HTML (subfolders are not entered; .md files are skipped)</td></tr><tr><td><code class="var-key">{{output_folder}}</code></td><td>folder</td><td><code>~/Documents/Markdown</code></td><td>Where the Markdown files go, one &lt;document name&gt;.md per document; created if missing. An existing file with the same name is replaced</td></tr><tr><td><code class="var-key">{{pages_per_call}}</code></td><td>text</td><td><code>4</code></td><td>Pages (text + one image each) the model sees per step. Lower it (2) for small models or long pages, raise it (8) for a large context window</td></tr></tbody></table></div>
+      <h3>MCP servers this task defines</h3>
+      <p class="muted small">Added to Settings › Tools on import, unless you already have a server with the same slug, in which case yours is used. Add any API keys there, not in the file.</p>
+<h4>docs <span class="muted">(<code>docs</code>)</span></h4>
+<p class="muted small">This server is started with <code>npx</code>, so <a href="https://nodejs.org">Node.js</a> must be installed.</p><pre><code>{
+  &quot;type&quot;: &quot;stdio&quot;,
+  &quot;command&quot;: &quot;npx&quot;,
+  &quot;args&quot;: [
+    &quot;-y&quot;,
+    &quot;@tsarun/docs-mcp&quot;
+  ]
+}</code></pre>
+
+      <details class="json">
+        <summary>The task file <button class="copy" data-copy="#task-json" type="button">Copy JSON</button></summary>
+        <pre><code id="task-json">{
+  &quot;format&quot;: &quot;AITaskDefinition&quot;,
+  &quot;version&quot;: 1,
+  &quot;task&quot;: {
+    &quot;name&quot;: &quot;Convert Documents to Markdown&quot;,
+    &quot;systemPrompt&quot;: &quot;You are a document conversion specialist working for the user. You turn documents (PDFs, scans, photos of pages, DOCX, text files) into Markdown files that keep every word and the whole structure of the original. You decide everything yourself; nobody is available to answer questions. Always read a document with docs__read_document before converting it; never rely on memory of a file and never invent, summarise, shorten or reorder content. The tool returns the document text with &#x27;===== Page N =====&#x27; markers and, for PDFs, one image per page; image files come as the image alone. Use both sources, each for what it is good at: the TEXT is the source of the characters, so copy words, numbers, names and codes from it exactly; the IMAGE is the source of the structure, so take from it what the text cannot show: heading levels (size and weight), bold and italic, lists and their nesting, tables and their columns, which label belongs to which value, reading order of multi-column pages, captions, footnotes, checkboxes, signatures and figures. When there is no text layer (image files, scanned pages, or a warning that says so) transcribe everything from the image, character by character; write [illegible] for anything you cannot read with certainty and never guess. Output rules. Write GitHub-flavoured Markdown, nothing else: no code fence around the document, no commentary, no notes about the conversion, and keep the document&#x27;s own language. Begin the file with one &#x27;# &#x27; heading holding the document title (first part of a document only); use &#x27;## &#x27;, &#x27;### &#x27; and deeper for the document&#x27;s own heading hierarchy, never for emphasis. Keep paragraphs as paragraphs: join the lines that were only wrapped inside a paragraph, keep one blank line between paragraphs. Keep meaningful line breaks (address blocks, sender and recipient blocks, signature blocks, poetry) by ending each such line with a backslash. Lists become &#x27;- &#x27; or &#x27;1. &#x27; items with the original nesting. Tables become pipe tables with a header row and one row per original row; repeat a value where cells were merged, and keep the column order. Form-style label/value pairs become &#x27;**Label:** value&#x27; lines; checkboxes become &#x27;- [x] &#x27; or &#x27;- [ ] &#x27;. Emphasis becomes **bold** and *italic*. Footnotes use &#x27;[^1]&#x27; markers with the note text at the end of the page. Quoted passages become &#x27;&gt; &#x27; blocks. Figures, charts, logos, stamps, photos and signatures cannot be copied: put an italic placeholder where each one stands, such as *[Figure: bar chart of monthly balance, Jan–Jun 2026]* or *[Signature: Maria Chen]*, and when a chart or diagram shows legible labels or values, add them as a list or table right after the placeholder so no information is lost. Begin each page&#x27;s content with &#x27;&lt;!-- page N --&gt;&#x27; on its own line. Drop what only exists because of paper: repeated running headers and footers, &#x27;Page 2 of 5&#x27; counters, blank space; keep a letterhead once, at the top. A paragraph, list or table that continues across a page break continues after the marker without repeating the table header. Large inputs arrive in parts: docs__read_document shows at most the pages you ask for and ends with the exact call for the next part (pages=\&quot;5-8\&quot;, or an offset). Convert only the pages shown, save them with docs__write_markdown (append: false for the first part of a document, append: true for every later part), then call context__clear with a note that names the document, its output path, the pages saved, what the last block was (mid-paragraph, mid-list, or a table with its column names) and the exact next call; the note is all you will remember, so continue the next part from it and finish an unfinished block before starting a new one. Work on exactly one document, or one part of one, at a time. Put the Markdown only into the docs__write_markdown call, never into your reply. Reply in one short line per finished document.&quot;,
+    &quot;userPrompt&quot;: &quot;1. Call docs__list_documents with folder: {{folder}}. Ignore any file whose name ends in .md or .markdown. If no document is left, reply \&quot;No documents found in {{folder}}.\&quot; and stop.\n2. Take the first document that is not yet done, or the next part of the document in progress. Call docs__read_document with path: &lt;that document&gt; and max_pages: {{pages_per_call}}, adding the pages or offset named by the previous part&#x27;s \&quot;Next part\&quot; line if there is one. Work only on the pages shown now.\n3. Convert the shown pages to Markdown following the rules: text for the characters, page images for the structure; a &#x27;&lt;!-- page N --&gt;&#x27; line before each page; headings, lists, tables, label/value lines, emphasis and placeholders for figures. Nothing left out, nothing added. The output path is {{output_folder}}/&lt;file name without its extension&gt;.md (for example /path/to/statement.pdf becomes {{output_folder}}/statement.md).\n4. Call docs__write_markdown with path: &lt;output path&gt;, content: &lt;the Markdown for these pages&gt;, and append: false for the first part of a document or true for every later part. Do not print the Markdown in your reply.\n5. Call context__clear with a note in this form: \&quot;Done: bank-statement-letter.pdf -&gt; /out/bank-statement-letter.md (2 pages); scanned-notice.jpg -&gt; /out/scanned-notice.md (1 page). In progress: /full/path/big.pdf -&gt; /out/big.md, pages 1-4 saved, last block: table with columns Date | Description | Amount, next call pages=\\\&quot;5-8\\\&quot;. Remaining: /full/path/next.pdf, /full/path/other.jpg.\&quot; List every remaining document with its full path, and for a document that still has parts left the exact next call.\n6. Repeat from step 2 with the next part of the document in progress, or with the next remaining document. When no document and no part remains, reply with one line per document (\&quot;&lt;file name&gt; -&gt; &lt;output path&gt;: N pages\&quot;) and stop.&quot;,
+    &quot;allowsSteering&quot;: false,
+    &quot;requires&quot;: [
+      &quot;vision&quot;
+    ],
+    &quot;variables&quot;: [
+      {
+        &quot;key&quot;: &quot;folder&quot;,
+        &quot;type&quot;: &quot;folder&quot;,
+        &quot;default&quot;: &quot;~/Documents/Inbox&quot;,
+        &quot;description&quot;: &quot;Folder whose documents are converted one by one: PDF, images (PNG, JPEG, TIFF), DOCX, ODT, EPUB, TXT, CSV, HTML (subfolders are not entered; .md files are skipped)&quot;
+      },
+      {
+        &quot;key&quot;: &quot;output_folder&quot;,
+        &quot;type&quot;: &quot;folder&quot;,
+        &quot;default&quot;: &quot;~/Documents/Markdown&quot;,
+        &quot;description&quot;: &quot;Where the Markdown files go, one &lt;document name&gt;.md per document; created if missing. An existing file with the same name is replaced&quot;
+      },
+      {
+        &quot;key&quot;: &quot;pages_per_call&quot;,
+        &quot;type&quot;: &quot;text&quot;,
+        &quot;default&quot;: &quot;4&quot;,
+        &quot;description&quot;: &quot;Pages (text + one image each) the model sees per step. Lower it (2) for small models or long pages, raise it (8) for a large context window&quot;
+      }
+    ],
+    &quot;tools&quot;: [
+      {
+        &quot;server&quot;: &quot;docs&quot;,
+        &quot;tools&quot;: [
+          &quot;list_documents&quot;,
+          &quot;read_document&quot;,
+          &quot;write_markdown&quot;
+        ]
+      },
+      {
+        &quot;builtin&quot;: &quot;context&quot;
+      }
+    ]
+  },
+  &quot;mcpServers&quot;: {
+    &quot;docs&quot;: {
+      &quot;type&quot;: &quot;stdio&quot;,
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [
+        &quot;-y&quot;,
+        &quot;@tsarun/docs-mcp&quot;
+      ]
+    }
+  }
+}
+</code></pre>
+      </details>
+    </article>
+
+    <aside class="aside">
+      <div class="box">
+        <a class="btn btn-primary btn-lg" href="convert-documents-to-markdown.json" download="convert-documents-to-markdown.json">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          Download task
+        </a>
+        <span class="btn-note center" style="display:block">convert-documents-to-markdown.json · 7.1 KB</span>
+      </div>
+    </aside>
+  </div>
+
+
+  <footer class="footer">
+    <span>AITaskRunner for macOS · v1.0</span>
+    <a href="../../tasks/">Task repository</a>
+    <a href="../../spec/">AITaskDefinition spec</a>
+    <a href="../../skill/">Authoring skill</a>
+    <a href="https://github.com/arunts/AITask">Source on GitHub</a>
+    <span class="spacer"></span>
+  </footer>
+</div>
+<script src="../../assets/site.js?v=50229b803f" defer></script>
+</body>
+</html>

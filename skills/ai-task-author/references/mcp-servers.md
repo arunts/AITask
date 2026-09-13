@@ -17,6 +17,10 @@ Use this when the built-in Shell pack cannot do the job (web, browser, an online
 - **Remote (HTTP) servers**: The app sends static headers only. A server that needs an OAuth login flow will not work; prefer its stdio package or a bearer token.
 - **Small local models** pick tools badly beyond a dozen. A server that exposes 30 tools needs an explicit list and a prompt that names the one or two to call.
 
+## Servers that return images
+
+A server may answer with MCP `image` content (screenshots, rendered pages, charts). The app passes those images on: an OpenAI-compatible **vision** model (Qwen-VL, Gemma 3/4, LLaVA…) sees them as `image_url` parts in a follow-up user message after the tool result, whose text keeps a numbered placeholder such as `[image 1: image/png]`. A text-only endpoint model gets the placeholder and a note; the Apple on-device model never receives images. Only PNG, JPEG, WebP and GIF are forwarded, up to about 24 MB per result. When a task depends on the model looking at an image, put `"requires": ["vision"]` in the task so the app offers only vision models, and say in the prompt that the images follow the tool result.
+
 ## Known servers
 
 Checked September 2026. Names drift; verify before use. Definitions are in the `mcpServers` shape.

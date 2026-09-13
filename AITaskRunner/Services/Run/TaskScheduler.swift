@@ -53,13 +53,20 @@ final class TaskScheduler {
         return choice
     }
 
+    /// Requirements the chosen model is known not to meet; the run is held while any remain.
+    func unmetRequirements(for task: AgentTask, model: ModelChoice) -> [ModelCapability] {
+        providers.knownCapabilities(for: model).unsupported(among: task.effectiveRequirements)
+    }
+
     /// Why a due task is waiting instead of running, or nil when nothing holds it.
     func holdReason(for task: AgentTask) -> String? {
         if isRunning(task.id) { return nil }
-        if availableModel(for: task) == nil {
+        guard let model = availableModel(for: task) else {
             let name = task.preferredModel.flatMap { ModelChoice(rawValue: $0) }.map { settings.displayName(for: $0) }
             return name.map { "Waiting for \($0) to be available" } ?? "No model chosen"
         }
+        let unmet = unmetRequirements(for: task, model: model)
+        if !unmet.isEmpty { return "\(settings.displayName(for: model)) does not support \(unmet.listed)" }
         if activeRunner != nil { return "Waiting for another scheduled run to finish" }
         if manualRunsActive > 0 { return "Waiting for the open run window to finish" }
         return nil
@@ -78,7 +85,7 @@ final class TaskScheduler {
             .filter { $0.canBeScheduled && ($0.schedule?.isDue(at: now) ?? false) }
             .sorted { ($0.schedule?.nextRunAt ?? now) < ($1.schedule?.nextRunAt ?? now) }
         for task in due {
-            guard let model = availableModel(for: task) else { continue }
+            guard let model = availableModel(for: task), unmetRequirements(for: task, model: model).isEmpty else { continue }
             await run(task, model: model)
             return // one per tick; the next tick picks up anything else that is due
         }

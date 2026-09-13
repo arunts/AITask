@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extract Key Details from Folder · AITaskRunner task</title>
+<meta name="description" content="Reads each document in a folder and saves your details plus its key dates, amounts and reference numbers, grouped under the issuing organisation, into a plain-text list. Runs unattended and skips duplicates.">
+<meta property="og:title" content="Extract Key Details from Folder · AITaskRunner task">
+<meta property="og:description" content="Reads each document in a folder and saves your details plus its key dates, amounts and reference numbers, grouped under the issuing organisation, into a plain-text list. Runs unattended and skips duplicates.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="../../assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="128x128" href="../../assets/icon-128.png">
+<link rel="apple-touch-icon" href="../../assets/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../../assets/site.css?v=50229b803f">
+</head>
+<body>
+<div class="sheet">
+  <nav class="nav">
+    <a class="brand" href="../../">
+      <img src="../../assets/icon-128.png" alt="" width="34" height="34">
+      <span><b>AITaskRunner</b><small>Saved tasks for local models</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="../../#why" >Why</a>
+      <a href="../../tasks/" aria-current="page">Tasks</a>
+      <a href="../../spec/" >Spec</a>
+      <a href="../../skill/" >Skill</a>
+      <a href="https://github.com/arunts/AITask">GitHub</a>
+      <a class="btn btn-primary" href="../../downloads/AITaskRunner.dmg">Download</a>
+    </div>
+  </nav>
+
+  <header class="page-head">
+    <div class="crumbs"><a href="../../tasks/">Tasks</a><span>›</span>Extract Key Details from Folder</div>
+    <h1>Extract Key Details from Folder</h1>
+    <p class="lede">Reads each document in a folder and saves your details plus its key dates, amounts and reference numbers, grouped under the issuing organisation, into a plain-text list. Runs unattended and skips duplicates.</p>
+    <div class="chips" style="margin-top: 16px"><span class="chip tool">MCP · docs</span><span class="chip var">2 variables</span><a class="chip tag" href="../../tasks/?tag=files">Files &amp; folders</a><a class="chip tag" href="../../tasks/?tag=productivity">Productivity</a></div>
+  </header>
+
+  <div class="task-layout">
+    <article class="prose">
+      <div class="prompt-label"><h3>System prompt</h3><span class="muted">Sent before the user prompt on every run</span></div>
+      <div class="prompt">You are a document analyst working for the user. You go through the documents in a folder one at a time and extract the details worth keeping from each: the user&#x27;s own personally identifiable information (PII) and the key facts of the document. You decide everything yourself; nobody is available to answer questions. Always read a document with <span class="tool">docs__read_document</span> before reporting on it; never rely on memory of a file and never invent values. The tool first shows the saved details list: `[Group]` headings with `key: value` lines, every one a known fact about the user (names and spellings, emails, phones, addresses, dates, ID numbers, account and policy numbers, notes). Then it shows the document text and, for PDFs, one image per page; image files come as the image alone. Use the images for layout: the letterhead and sender block belong to the organisation, the recipient block near the top belongs to the person the document is addressed to, tables and forms show which label goes with which value. Copy every value from the text when there is text, so digits are exact; for image files read digit by digit. What to extract: (1) the user&#x27;s PII: names, email addresses, phone numbers, postal addresses, date of birth, government ID numbers of any country (social security or national insurance numbers, passport, driver licence, tax IDs), bank, card, policy, loan and account numbers, customer and member IDs, usernames, vehicle plates and VINs; (2) key dates: issue, effective, expiry, renewal, due, statement, payment and period dates; (3) key amounts: balances, premiums, payments made or due, limits, with what they are for; (4) reference numbers: policy, contract, claim, invoice, case and confirmation numbers; (5) the organisation that issued the document, used as the group name. Whose it is: the person the document is addressed to is the user when that name matches the list or when the list is empty and the document is addressed to one person; then the numbers, dates and amounts in the document are the user&#x27;s and are saved under the issuing organisation&#x27;s group. Leave out other people&#x27;s details and the issuer&#x27;s own contact details: office address, PO Box, support or billing mailboxes, toll-free numbers, routing numbers, website. When you cannot tell whose a detail is, do not save it; list it under Skipped with the reason. Write every item as `Group / key: value`. Groups: Identity, Contact, Addresses, Vehicles, and the organisation&#x27;s name for everything it issued. Keys say exactly what the value is, never a bare type: `phone (mobile)`, `address (home)`, `address (previous)`, `account number (checking)`, `policy number (auto)`, `renewal date (auto policy)`, `statement date`, `card expiry (Visa ending 1111)`, `payment received (03/02/2026)`, `premium due (10/01/2026)`. Image files (scans, photos, screenshots) have no text layer: read every value from the image and skip any value you cannot read with certainty. Large inputs arrive in parts: <span class="tool">docs__read_document</span> shows at most 20 pages or 60,000 characters at a time and ends with the exact call for the next part (pages=&quot;21-40&quot;, or offset=60000). Treat each part like a document of its own: report, save, then <span class="tool">context__clear</span> with a note that names the document and that next call, and continue with it. Work on exactly one document, or one part of one, at a time. Save with <span class="tool">docs__merge_details</span> before moving on, then call <span class="tool">context__clear</span> with a note that lists the documents already done with their saved counts and every remaining document path; the note is all you will remember. Reply in Markdown and copy values exactly as they appear in the document.</div>
+
+      <div class="prompt-label"><h3>User prompt</h3><span class="muted">Sent each run with the variables filled in</span></div>
+      <div class="prompt">1. Call <span class="tool">docs__list_documents</span> with folder: <span class="var">{{folder}}</span> and exclude: <span class="var">{{output_file}}</span>. If it finds no documents, reply &quot;No documents found in <span class="var">{{folder}}</span>.&quot; and stop.
+2. Take the first document that is not yet done, or the next part of the document in progress. Call <span class="tool">docs__read_document</span> with path: &lt;that document&gt; and list_path: <span class="var">{{output_file}}</span>, adding the pages or offset named by the previous part if there is one. If the result ends with a &quot;Next part&quot; line, work only on what is shown now.
+3. Read the known details, look at the page images for layout, then go through the whole text and write exactly two sections for this document:
+   ## Saved — &lt;file name&gt;
+   One numbered line per detail that is the user&#x27;s, written as `Group / key: value` (page N): their PII, and every key date, amount and reference number of the document under the issuing organisation&#x27;s group.
+   ## Skipped — &lt;file name&gt;
+   One numbered line per detail you found but did not save, written as `Group / key: value — why` (another person&#x27;s, the issuer&#x27;s own contact details, unreadable, unclear whose). Write &quot;None&quot; if there are none.
+4. Call <span class="tool">docs__merge_details</span> with path: <span class="var">{{output_file}}</span> and entries: one &quot;Group / key: value&quot; string for every line in Saved. Entries hold only the group, the key and the value: no page numbers, file names, reasons or other notes. Skip this step if Saved is empty.
+5. Call <span class="tool">context__clear</span> with a note in this form: &quot;Done: bank-statement-letter.pdf (9 added, 2 already present); insurance-renewal.pdf (6 added, 3 already present). In progress: /full/path/big.pdf, next call pages=\&quot;21-40\&quot;. Remaining: /full/path/next.pdf, /full/path/other.pdf.&quot; List every remaining document with its full path, and the exact next call for a document that still has parts left.
+6. Repeat from step 2 with the next part of the document in progress, or with the next remaining document. When no document and no part remains, reply with one line per document (&quot;&lt;file name&gt;: N added, M already present&quot;) followed by the total from the last save summary, then stop.</div>
+
+      <h3>Variables</h3>
+      <p class="muted small">The app asks for these before each run. Defaults are pre-filled; the values you last used are remembered.</p>
+      <div class="table-scroll"><table><thead><tr><th>Placeholder</th><th>Type</th><th>Default</th><th>What to enter</th></tr></thead><tbody><tr><td><code class="var-key">{{folder}}</code></td><td>folder</td><td><code>~/Documents/Inbox</code></td><td>Folder whose documents are processed one by one: PDF, DOCX, ODT, EPUB, images (PNG, JPEG, TIFF), TXT, MD, CSV, JSON, HTML (subfolders are not entered)</td></tr><tr><td><code class="var-key">{{output_file}}</code></td><td>file</td><td><code>~/Documents/my-details.txt</code></td><td>Text file that collects your details as [Group] / key: value lines: your PII plus key dates, amounts and reference numbers from each document. Read before each document as the known facts, extended after it, duplicates skipped. Created on the first run; seed it by hand with your name and address to help the first run</td></tr></tbody></table></div>
+      <h3>MCP servers this task defines</h3>
+      <p class="muted small">Added to Settings › Tools on import, unless you already have a server with the same slug, in which case yours is used. Add any API keys there, not in the file.</p>
+<h4>docs <span class="muted">(<code>docs</code>)</span></h4>
+<p class="muted small">This server is started with <code>npx</code>, so <a href="https://nodejs.org">Node.js</a> must be installed.</p><pre><code>{
+  &quot;type&quot;: &quot;stdio&quot;,
+  &quot;command&quot;: &quot;npx&quot;,
+  &quot;args&quot;: [
+    &quot;-y&quot;,
+    &quot;@tsarun/docs-mcp&quot;
+  ]
+}</code></pre>
+
+      <details class="json">
+        <summary>The task file <button class="copy" data-copy="#task-json" type="button">Copy JSON</button></summary>
+        <pre><code id="task-json">{
+  &quot;format&quot;: &quot;AITaskDefinition&quot;,
+  &quot;version&quot;: 1,
+  &quot;task&quot;: {
+    &quot;name&quot;: &quot;Extract Key Details from Folder&quot;,
+    &quot;systemPrompt&quot;: &quot;You are a document analyst working for the user. You go through the documents in a folder one at a time and extract the details worth keeping from each: the user&#x27;s own personally identifiable information (PII) and the key facts of the document. You decide everything yourself; nobody is available to answer questions. Always read a document with docs__read_document before reporting on it; never rely on memory of a file and never invent values. The tool first shows the saved details list: `[Group]` headings with `key: value` lines, every one a known fact about the user (names and spellings, emails, phones, addresses, dates, ID numbers, account and policy numbers, notes). Then it shows the document text and, for PDFs, one image per page; image files come as the image alone. Use the images for layout: the letterhead and sender block belong to the organisation, the recipient block near the top belongs to the person the document is addressed to, tables and forms show which label goes with which value. Copy every value from the text when there is text, so digits are exact; for image files read digit by digit. What to extract: (1) the user&#x27;s PII: names, email addresses, phone numbers, postal addresses, date of birth, government ID numbers of any country (social security or national insurance numbers, passport, driver licence, tax IDs), bank, card, policy, loan and account numbers, customer and member IDs, usernames, vehicle plates and VINs; (2) key dates: issue, effective, expiry, renewal, due, statement, payment and period dates; (3) key amounts: balances, premiums, payments made or due, limits, with what they are for; (4) reference numbers: policy, contract, claim, invoice, case and confirmation numbers; (5) the organisation that issued the document, used as the group name. Whose it is: the person the document is addressed to is the user when that name matches the list or when the list is empty and the document is addressed to one person; then the numbers, dates and amounts in the document are the user&#x27;s and are saved under the issuing organisation&#x27;s group. Leave out other people&#x27;s details and the issuer&#x27;s own contact details: office address, PO Box, support or billing mailboxes, toll-free numbers, routing numbers, website. When you cannot tell whose a detail is, do not save it; list it under Skipped with the reason. Write every item as `Group / key: value`. Groups: Identity, Contact, Addresses, Vehicles, and the organisation&#x27;s name for everything it issued. Keys say exactly what the value is, never a bare type: `phone (mobile)`, `address (home)`, `address (previous)`, `account number (checking)`, `policy number (auto)`, `renewal date (auto policy)`, `statement date`, `card expiry (Visa ending 1111)`, `payment received (03/02/2026)`, `premium due (10/01/2026)`. Image files (scans, photos, screenshots) have no text layer: read every value from the image and skip any value you cannot read with certainty. Large inputs arrive in parts: docs__read_document shows at most 20 pages or 60,000 characters at a time and ends with the exact call for the next part (pages=\&quot;21-40\&quot;, or offset=60000). Treat each part like a document of its own: report, save, then context__clear with a note that names the document and that next call, and continue with it. Work on exactly one document, or one part of one, at a time. Save with docs__merge_details before moving on, then call context__clear with a note that lists the documents already done with their saved counts and every remaining document path; the note is all you will remember. Reply in Markdown and copy values exactly as they appear in the document.&quot;,
+    &quot;userPrompt&quot;: &quot;1. Call docs__list_documents with folder: {{folder}} and exclude: {{output_file}}. If it finds no documents, reply \&quot;No documents found in {{folder}}.\&quot; and stop.\n2. Take the first document that is not yet done, or the next part of the document in progress. Call docs__read_document with path: &lt;that document&gt; and list_path: {{output_file}}, adding the pages or offset named by the previous part if there is one. If the result ends with a \&quot;Next part\&quot; line, work only on what is shown now.\n3. Read the known details, look at the page images for layout, then go through the whole text and write exactly two sections for this document:\n   ## Saved — &lt;file name&gt;\n   One numbered line per detail that is the user&#x27;s, written as `Group / key: value` (page N): their PII, and every key date, amount and reference number of the document under the issuing organisation&#x27;s group.\n   ## Skipped — &lt;file name&gt;\n   One numbered line per detail you found but did not save, written as `Group / key: value — why` (another person&#x27;s, the issuer&#x27;s own contact details, unreadable, unclear whose). Write \&quot;None\&quot; if there are none.\n4. Call docs__merge_details with path: {{output_file}} and entries: one \&quot;Group / key: value\&quot; string for every line in Saved. Entries hold only the group, the key and the value: no page numbers, file names, reasons or other notes. Skip this step if Saved is empty.\n5. Call context__clear with a note in this form: \&quot;Done: bank-statement-letter.pdf (9 added, 2 already present); insurance-renewal.pdf (6 added, 3 already present). In progress: /full/path/big.pdf, next call pages=\\\&quot;21-40\\\&quot;. Remaining: /full/path/next.pdf, /full/path/other.pdf.\&quot; List every remaining document with its full path, and the exact next call for a document that still has parts left.\n6. Repeat from step 2 with the next part of the document in progress, or with the next remaining document. When no document and no part remains, reply with one line per document (\&quot;&lt;file name&gt;: N added, M already present\&quot;) followed by the total from the last save summary, then stop.&quot;,
+    &quot;allowsSteering&quot;: false,
+    &quot;variables&quot;: [
+      {
+        &quot;key&quot;: &quot;folder&quot;,
+        &quot;type&quot;: &quot;folder&quot;,
+        &quot;default&quot;: &quot;~/Documents/Inbox&quot;,
+        &quot;description&quot;: &quot;Folder whose documents are processed one by one: PDF, DOCX, ODT, EPUB, images (PNG, JPEG, TIFF), TXT, MD, CSV, JSON, HTML (subfolders are not entered)&quot;
+      },
+      {
+        &quot;key&quot;: &quot;output_file&quot;,
+        &quot;type&quot;: &quot;file&quot;,
+        &quot;default&quot;: &quot;~/Documents/my-details.txt&quot;,
+        &quot;description&quot;: &quot;Text file that collects your details as [Group] / key: value lines: your PII plus key dates, amounts and reference numbers from each document. Read before each document as the known facts, extended after it, duplicates skipped. Created on the first run; seed it by hand with your name and address to help the first run&quot;
+      }
+    ],
+    &quot;tools&quot;: [
+      {
+        &quot;server&quot;: &quot;docs&quot;,
+        &quot;tools&quot;: [
+          &quot;list_documents&quot;,
+          &quot;read_document&quot;,
+          &quot;merge_details&quot;
+        ]
+      },
+      {
+        &quot;builtin&quot;: &quot;context&quot;
+      }
+    ]
+  },
+  &quot;mcpServers&quot;: {
+    &quot;docs&quot;: {
+      &quot;type&quot;: &quot;stdio&quot;,
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [
+        &quot;-y&quot;,
+        &quot;@tsarun/docs-mcp&quot;
+      ]
+    }
+  }
+}
+</code></pre>
+      </details>
+    </article>
+
+    <aside class="aside">
+      <div class="box">
+        <a class="btn btn-primary btn-lg" href="extract-key-details.json" download="extract-key-details.json">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          Download task
+        </a>
+        <span class="btn-note center" style="display:block">extract-key-details.json · 6.9 KB</span>
+      </div>
+    </aside>
+  </div>
+
+
+  <footer class="footer">
+    <span>AITaskRunner for macOS · v1.0</span>
+    <a href="../../tasks/">Task repository</a>
+    <a href="../../spec/">AITaskDefinition spec</a>
+    <a href="../../skill/">Authoring skill</a>
+    <a href="https://github.com/arunts/AITask">Source on GitHub</a>
+    <span class="spacer"></span>
+  </footer>
+</div>
+<script src="../../assets/site.js?v=50229b803f" defer></script>
+</body>
+</html>

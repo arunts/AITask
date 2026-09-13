@@ -100,7 +100,7 @@ struct RunTranscriptView: View {
     /// Changes whenever anything visible in the transcript grows, so the view can keep the end in sight.
     private var transcriptSignature: Int {
         runner.blocks.reduce(runner.blocks.count) { total, block in
-            total &+ block.text.count &+ block.thinking.count &+ (block.toolResult?.count ?? 0)
+            total &+ block.text.count &+ block.thinking.count &+ (block.toolResult?.count ?? 0) &+ block.toolImages.count
         }
     }
 
@@ -346,6 +346,9 @@ struct RunBlockView: View {
                                 .controlSize(.small)
                         }
                     }
+                    if !block.toolImages.isEmpty {
+                        ToolImageStrip(images: block.toolImages)
+                    }
                 }
                 .padding(.top, 6)
             } label: {
@@ -367,6 +370,11 @@ struct RunBlockView: View {
                     }
                     if let result = block.toolResult {
                         Text("\(result.count.formatted()) characters")
+                            .textStyle(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    if !block.toolImages.isEmpty {
+                        Text(block.toolImages.count.counted("image"))
                             .textStyle(.callout)
                             .foregroundStyle(.secondary)
                     }
@@ -444,5 +452,100 @@ struct RunBlockView: View {
         Label(title, systemImage: symbol)
             .textStyle(.callout, weight: .semibold)
             .foregroundStyle(.secondary)
+    }
+}
+
+// MARK: - Tool images
+
+/// Thumbnails of the images a tool returned; clicking one opens it full size in a sheet.
+struct ToolImageStrip: View {
+    let images: [MCPImage]
+
+    private struct Selection: Identifiable {
+        let id: Int
+    }
+
+    @State private var selection: Selection?
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(images.indices, id: \.self) { index in
+                    Button {
+                        selection = Selection(id: index)
+                    } label: {
+                        ToolImageView(image: images[index])
+                            .frame(maxWidth: 160, maxHeight: 120)
+                            .clipShape(.rect(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.quaternary))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Image \(index + 1) of \(images.count) (\(images[index].mimeType))")
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .sheet(item: $selection) { selected in
+            ToolImageSheet(images: images, index: selected.id)
+        }
+    }
+}
+
+/// One decoded image. Decoding is done once, off the view body.
+struct ToolImageView: View {
+    let image: MCPImage
+    @State private var decoded: NSImage?
+
+    var body: some View {
+        Group {
+            if let decoded {
+                Image(nsImage: decoded)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Image(systemName: "photo")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 80, height: 60)
+            }
+        }
+        .task {
+            if decoded == nil, let data = Data(base64Encoded: image.base64, options: .ignoreUnknownCharacters) {
+                decoded = NSImage(data: data)
+            }
+        }
+    }
+}
+
+/// Full-size view of one tool image, with arrows through the others from the same result.
+struct ToolImageSheet: View {
+    let images: [MCPImage]
+    @State var index: Int
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Image \(index + 1) of \(images.count)")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if images.count > 1 {
+                    Button("Previous", systemImage: "chevron.left") { index = max(0, index - 1) }
+                        .disabled(index == 0)
+                    Button("Next", systemImage: "chevron.right") { index = min(images.count - 1, index + 1) }
+                        .disabled(index == images.count - 1)
+                }
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .labelStyle(.iconOnly)
+            .padding(12)
+            Divider()
+            ScrollView([.horizontal, .vertical]) {
+                ToolImageView(image: images[index])
+                    .id(index)
+                    .padding(12)
+            }
+        }
+        .frame(minWidth: 480, idealWidth: 900, minHeight: 360, idealHeight: 700)
     }
 }

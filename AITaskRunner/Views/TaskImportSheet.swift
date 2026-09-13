@@ -160,6 +160,29 @@ struct TaskImportSheet: View {
                     Label("The model can ask you questions while it runs.", systemImage: "bubble.left.and.bubble.right")
                 }
             }
+            if !task.effectiveRequirements.isEmpty {
+                Section {
+                    ForEach(task.effectiveRequirements.sorted()) { capability in
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(capability.label)
+                                Text(task.impliedCapabilities.contains(capability) && !task.requiredCapabilities.contains(capability)
+                                     ? "Needed for the attached tools."
+                                     : capability.explanation)
+                                    .textStyle(.callout)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: capability.symbol)
+                        }
+                    }
+                } header: {
+                    Text("Model requirements")
+                } footer: {
+                    Text("Only models that support these are offered for the task; one known to lack any of them is not run.")
+                        .textStyle(.callout)
+                }
+            }
         }
         .formStyle(.grouped)
     }
