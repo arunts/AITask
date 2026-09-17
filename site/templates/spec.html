@@ -97,13 +97,13 @@ $toc
       <table>
         <thead><tr><th>Key</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td><code>builtin</code></td><td>A pack that ships inside the app: <code>"shell"</code> or <code>"context"</code>. Unknown packs are refused. <code>"bash"</code>, the shell pack's old name, is still accepted and treated as <code>shell</code>.</td></tr>
+          <tr><td><code>builtin</code></td><td>A pack that ships inside the app: <code>"shell"</code>, <code>"context"</code> or <code>"progress"</code>. Unknown packs are refused. <code>"bash"</code>, the shell pack's old name, is still accepted and treated as <code>shell</code>.</td></tr>
           <tr><td><code>server</code></td><td>The slug of an MCP server defined under <code>mcpServers</code>, or of one the user already has in the app.</td></tr>
           <tr><td><code>tools</code></td><td>The exact tool names to expose, as an array. <code>null</code> or omitted means every tool the source offers, including ones added later. Unknown built-in tool names are refused. MCP tool names cannot be checked at import time, so spell them exactly as the server reports them. Fewer tools help small models choose well.</td></tr>
         </tbody>
       </table>
       </div>
-      <p>The model sees each tool as <code>source__tool</code>: <code>shell__run</code>, <code>context__clear</code>, <code>fetch__fetch</code>. Use those exact names in the prompts. The app highlights them, and small models follow explicit names far more reliably than descriptions. Order matters only for display; attaching the same source twice is pointless, and the last entry wins.</p>
+      <p>The model sees each tool as <code>source__tool</code>: <code>shell__run</code>, <code>context__clear</code>, <code>progress__update</code>, <code>fetch__fetch</code>. Use those exact names in the prompts. The app highlights them, and small models follow explicit names far more reliably than descriptions. Order matters only for display; attaching the same source twice is pointless, and the last entry wins.</p>
 
       <h2 id="requires">Model requirements</h2>
       <p>A task can say what the model must be able to do. The app never runs it on a model known to lack one of these, marks such models in the picker, turns Run off for them, and holds a scheduled run until the chosen model qualifies.</p>
@@ -121,7 +121,7 @@ $toc
       <p>How the app knows what a model supports: Ollama reports all three for each model; LM Studio and llama.cpp report vision; and a run teaches it (a rejected image or tool request, a tool call that came back). A model whose server reports nothing is allowed to run, with a note in the transcript. When <code>vision</code> is required and the server rejects the images anyway, the run ends instead of going on without them.</p>
 
       <h2 id="builtin">Built-in tools</h2>
-      <p>Two packs, <strong>Shell</strong> (<code>shell__run</code>) and <strong>Context</strong> (<code>context__clear</code>). Nothing to install. Either can be turned off in the app; a task that needs it still imports, with a warning, and fails at run time until it is turned back on.</p>
+      <p>Three packs, <strong>Shell</strong> (<code>shell__run</code>), <strong>Context</strong> (<code>context__clear</code>) and <strong>Progress</strong> (<code>progress__update</code>). Nothing to install. Any of them can be turned off in the app; a task that needs it still imports, with a warning, and fails at run time until it is turned back on.</p>
       <div class="table-scroll">
       <table>
         <thead><tr><th>Tool</th><th>What it does</th><th>Arguments</th></tr></thead>
@@ -142,12 +142,22 @@ $toc
       </table>
       </div>
       <p>Attach it with <code>{ "builtin": "context" }</code>. Have the prompt save each item's output to disk before calling it, and put the remaining items in the note: after a clear the model remembers nothing else.</p>
+      <h3 id="progress-update"><code>progress__update</code></h3>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Tool</th><th>What it does</th><th>Arguments</th></tr></thead>
+        <tbody>
+          <tr><td><code>progress__update</code></td><td>Records how far a multi-step job has got. The run window shows a small bar and <code>done/total</code> in the toolbar; each call replaces the previous value, and the last one stays after the run ends. Display only: nothing else changes. Works on every model, and the value survives <code>context__clear</code>.</td><td><code>done</code> (required): steps or items finished, 0 to <code>total</code>; <code>total</code> (required): number of steps or items, at least 1. Numbers sent as strings are accepted; anything else is refused with an error the model can act on.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>Attach it with <code>{ "builtin": "progress" }</code> when the job has a countable list (files, pages, records, numbered steps) and tell the prompt to call it after each one, then once more with <code>done</code> equal to <code>total</code> before the final reply.</p>
       <h3 id="ask-user"><code>ask_user</code></h3>
       <p>Not listed in <code>tools</code>. When <code>allowsSteering</code> is <code>true</code> the app adds it automatically. It shows a question in the run window and suspends the run until the user answers or stops it. One argument: <code>question</code>. Tell the model when to use it (“ask_user before any destructive step”) and when not to.</p>
 
       <h2 id="mcp">MCP servers</h2>
       <p>For anything the shell cannot do well, such as fetching web pages or talking to a service, a task can use an MCP server. Define it under <code>mcpServers</code> in the same shape Claude Desktop, Cursor, VS Code and Claude Code use. The key is the server's name; its <strong>slug</strong> is what <code>tools[].server</code> refers to.</p>
-      <p><strong>Slug rule:</strong> lowercase the name; keep ASCII letters, digits and <code>-</code>; every other run of characters becomes a single <code>_</code>; trim <code>_</code> and <code>-</code> from both ends. <code>"Brave Search"</code> → <code>brave_search</code>. A definition may carry its own <code>"name"</code>, which then replaces the key for both display and slug. Do not use <code>shell</code>, <code>bash</code> or <code>context</code> as a slug; they belong to the built-in packs.</p>
+      <p><strong>Slug rule:</strong> lowercase the name; keep ASCII letters, digits and <code>-</code>; every other run of characters becomes a single <code>_</code>; trim <code>_</code> and <code>-</code> from both ends. <code>"Brave Search"</code> → <code>brave_search</code>. A definition may carry its own <code>"name"</code>, which then replaces the key for both display and slug. Do not use <code>shell</code>, <code>bash</code>, <code>context</code> or <code>progress</code> as a slug; they belong to the built-in packs.</p>
       <h3 id="mcp-stdio">A server started as a local program</h3>
 <pre><code>"fetch": {
   "type": "stdio",

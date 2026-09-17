@@ -15,7 +15,6 @@ struct AITaskRunnerApp: App {
     init() {
         // Writing to a dead MCP server's stdin must not take the whole app down.
         signal(SIGPIPE, SIG_IGN)
-        RebrandMigration.run()
         let settings = AppSettings()
         settings.applyAppearance()
         settings.applyActivationPolicy()
@@ -88,7 +87,7 @@ struct AITaskRunnerApp: App {
             TaskEditorWindow()
                 .appEnvironment(settings: settings, store: store, registry: registry, providers: providers, scheduler: scheduler)
         }
-        .defaultSize(width: 1120, height: 820)
+        .defaultSize(width: 1400, height: 940)
         .windowResizability(.contentMinSize)
         .commandsRemoved()
 

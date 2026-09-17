@@ -221,6 +221,10 @@ final class ToolBox {
             switch pack {
             case .shell: result = await ShellToolPack.call(entry.tool.name, arguments: arguments, settings: settings)
             case .context: result = MCPToolResult(text: "\(name) is handled by the run engine and is not available on this model.", isError: true)
+            case .progress:
+                let (checked, progress) = ProgressToolPack.call(entry.tool.name, arguments: arguments)
+                if let progress { runner?.reportProgress(progress) }
+                result = checked
             }
         } else {
             do {

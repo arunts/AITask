@@ -4,3 +4,5 @@ xcuserdata/
 build/
 DerivedData/
 Config/Local.xcconfig
+TODO.md
+__pycache__/

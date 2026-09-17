@@ -1,6 +1,6 @@
 # Built-in tools and `ask_user`
 
-The app ships two built-in packs, **Shell** (`shell__run`) and **Context** (`context__clear`). They need nothing installed. The user can turn either off in Settings › Tools; an imported task that needs one imports with a warning and fails at run time until it is re-enabled.
+The app ships three built-in packs, **Shell** (`shell__run`), **Context** (`context__clear`) and **Progress** (`progress__update`). They need nothing installed. The user can turn any of them off in Settings › Tools; an imported task that needs one imports with a warning and fails at run time until it is re-enabled.
 
 ## `shell` — one tool, `run`
 
@@ -63,6 +63,28 @@ Recipe for "do X to every file in a folder", written for small models:
 ```
 
 Put the list of remaining files in the note; after a clear the model no longer remembers the `find` output.
+
+## `progress` — one tool, `update`
+
+| Tool | What it does | Arguments (`*` required) |
+|---|---|---|
+| `update` | Records how far a multi-step job has got. The run window shows a small bar and `done/total` in the toolbar, next to the Thinking and Tool Calls toggles. | `done*` (0 … total), `total*` (≥ 1) |
+
+Attach it with `{ "builtin": "progress" }` when the job has a countable list: files in a folder, pages, records, or numbered steps in the prompt. Without it the user only sees the transcript scroll by.
+
+Behaviour:
+- Plain integers; the tool accepts numbers sent as strings. `done` above `total`, a `total` below 1, or a missing argument returns an error that tells the model what to pass. Nothing else happens: the value is display only.
+- Each call replaces the previous value; the last one stays in the toolbar after the run ends. The bar turns green when `done` equals `total`.
+- Works on every model, the Apple on-device model included.
+- Survives `context__clear` (the app keeps it, not the conversation), so a task that clears between items can still report progress; after a clear the model must get `done` and `total` from its note.
+
+Prompt line that small models follow:
+
+```
+After finishing each file, call progress__update with done = number of files finished so far and total = number of files found in step 1.
+```
+
+Call `progress__update` with `done` equal to `total` as the last step before the final reply, so the bar completes.
 
 ## `ask_user` — only when `allowsSteering` is `true`
 

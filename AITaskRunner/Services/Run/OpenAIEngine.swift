@@ -8,6 +8,8 @@ final class OpenAIEngine: RunEngine {
     private let model: String
     private let parameters: [String: JSONValue]
     private let contextWindow: Int?
+    /// Run option: strip older `reasoning_content` before every request, not only when the window is nearly full.
+    private let keepsLatestReasoningOnly: Bool
     private var messages: [JSONValue] = []
     private var callCounter = 0
     /// The task prompt, kept verbatim across a context clear.
@@ -45,6 +47,7 @@ final class OpenAIEngine: RunEngine {
         self.client = client
         self.model = model
         self.parameters = options.requestFields
+        self.keepsLatestReasoningOnly = options.keepsLatestReasoningOnly
         self.contextWindow = contextWindow
         self.requiresVision = requiresVision
         self.clearContextName = toolbox.contextClearName
@@ -68,6 +71,7 @@ final class OpenAIEngine: RunEngine {
                 return
             }
 
+            if keepsLatestReasoningOnly { Self.dropEarlierReasoning(from: &messages) }
             trimIfNeeded()
             let turn: TurnResult
             do {
@@ -341,14 +345,7 @@ final class OpenAIEngine: RunEngine {
     ) -> Int {
         var projected = projected
         let lastAssistant = messages.lastIndex { $0["role"]?.string == "assistant" } ?? messages.count
-
-        for index in messages.indices where index < lastAssistant {
-            guard var object = messages[index].object, object["role"]?.string == "assistant",
-                  let reasoning = object["reasoning_content"] else { continue }
-            object["reasoning_content"] = nil
-            messages[index] = .object(object)
-            projected -= estimateTokens(reasoning)
-        }
+        projected -= dropEarlierReasoning(from: &messages)
 
         var stubbed = 0
         let minimumLength = aggressively ? 80 : 300
@@ -374,6 +371,22 @@ final class OpenAIEngine: RunEngine {
             stubbed += 1
         }
         return stubbed
+    }
+
+    /// Removes `reasoning_content` from every assistant message except the latest one, which may hold the
+    /// reasoning behind tool calls still being answered. Returns the estimated tokens freed.
+    @discardableResult
+    nonisolated static func dropEarlierReasoning(from messages: inout [JSONValue]) -> Int {
+        let lastAssistant = messages.lastIndex { $0["role"]?.string == "assistant" } ?? messages.count
+        var freed = 0
+        for index in messages.indices where index < lastAssistant {
+            guard var object = messages[index].object, object["role"]?.string == "assistant",
+                  let reasoning = object["reasoning_content"] else { continue }
+            object["reasoning_content"] = nil
+            messages[index] = .object(object)
+            freed += estimateTokens(reasoning)
+        }
+        return freed
     }
 
     nonisolated static func isContextOverflow(_ error: any Error) -> Bool {

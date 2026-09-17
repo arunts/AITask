@@ -223,6 +223,27 @@ struct ContextUsageLabel: View {
     }
 }
 
+/// Toolbar-sized progress readout: a short bar plus "3/10", as the model last reported it.
+struct RunProgressLabel: View {
+    let progress: RunProgress
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ProgressView(value: progress.fraction)
+                .progressViewStyle(.linear)
+                .tint(progress.isComplete ? .green : .accentColor)
+                .frame(width: 64)
+            Text(progress.text)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+        .textStyle(.callout)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Progress \(progress.done) of \(progress.total)")
+        .help("Progress reported by the model: \(progress.done) of \(progress.total) done")
+    }
+}
+
 // MARK: - Model picker
 
 /// Options for every model picker: Apple first, then one group per endpoint so same-named models stay apart.
@@ -276,6 +297,24 @@ struct ModelPickerOptions: View {
 }
 
 // MARK: - Text helpers
+
+/// A stepper with a typed-in minute count, for time limits. Callers clamp the value to `RunTimeout.minuteRange`.
+struct MinutesStepper: View {
+    @Binding var minutes: Int
+
+    var body: some View {
+        Stepper(value: $minutes, in: RunTimeout.minuteRange) {
+            HStack(spacing: 4) {
+                TextField("Minutes", value: $minutes, format: .number.grouping(.never))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+                Text(minutes == 1 ? "minute" : "minutes")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
 
 extension Int {
     /// "1 tool" / "3 tools".

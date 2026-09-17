@@ -143,6 +143,7 @@ struct BuiltinPackDetailView: View {
                 switch pack {
                 case .shell: registry.builtinSettings.shellEnabled = on
                 case .context: registry.builtinSettings.contextEnabled = on
+                case .progress: registry.builtinSettings.progressEnabled = on
                 }
             }
         )

@@ -50,6 +50,9 @@ nonisolated struct RunOptions: Codable, Hashable, Sendable {
         var presencePenalty: Double?
         var frequencyPenalty: Double?
         var stopSequences: [String] = []
+        /// Send only the latest reply's `reasoning_content`; older thinking is dropped before every request,
+        /// whether or not the window is full. Applied by the engine, never sent to the server.
+        var keepsLatestReasoningOnly = false
 
         init() {}
 
@@ -62,6 +65,7 @@ nonisolated struct RunOptions: Codable, Hashable, Sendable {
             presencePenalty = try container.decodeIfPresent(Double.self, forKey: .presencePenalty)
             frequencyPenalty = try container.decodeIfPresent(Double.self, forKey: .frequencyPenalty)
             stopSequences = try container.decodeIfPresent([String].self, forKey: .stopSequences) ?? []
+            keepsLatestReasoningOnly = try container.decodeIfPresent(Bool.self, forKey: .keepsLatestReasoningOnly) ?? false
         }
 
         var isDefault: Bool { self == OpenAICompatibleOptions() }
@@ -90,6 +94,7 @@ nonisolated struct RunOptions: Codable, Hashable, Sendable {
             if let frequencyPenalty { lines.append("frequency_penalty \(RunOptions.format(frequencyPenalty))") }
             let stops = stopSequences.filter { !$0.isEmpty }
             if !stops.isEmpty { lines.append("stop \(stops.map { "“\($0)”" }.joined(separator: ", "))") }
+            if keepsLatestReasoningOnly { lines.append("latest thinking only") }
             return lines
         }
     }

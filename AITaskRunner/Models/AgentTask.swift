@@ -203,6 +203,9 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
     var requiredCapabilities: Set<ModelCapability>
     /// `ModelChoice.rawValue` last picked for this task.
     var preferredModel: String?
+    /// Working-time limit for runs of this task, in seconds: nil follows the app setting, 0 means no limit.
+    /// Like `preferredModel`, a choice made on this Mac that is never exported.
+    var runTimeoutSeconds: Int?
     /// Generation settings (temperature, sampling, limits) per provider.
     var runOptions: RunOptions
     /// Unattended repeat, if the user set one. Cleared when steering is turned on.
@@ -221,6 +224,7 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
         allowsSteering: Bool = false,
         requiredCapabilities: Set<ModelCapability> = [],
         preferredModel: String? = nil,
+        runTimeoutSeconds: Int? = nil,
         runOptions: RunOptions = RunOptions(),
         schedule: TaskSchedule? = nil,
         createdAt: Date = .now,
@@ -236,6 +240,7 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
         self.allowsSteering = allowsSteering
         self.requiredCapabilities = requiredCapabilities
         self.preferredModel = preferredModel
+        self.runTimeoutSeconds = runTimeoutSeconds
         self.runOptions = runOptions
         self.schedule = schedule
         self.createdAt = createdAt
@@ -245,7 +250,7 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
     /// Spelled out because both the decoder and the encoder are written by hand.
     private enum CodingKeys: String, CodingKey {
         case id, name, systemPrompt, userPrompt, toolAttachments, variables, variableValues, allowsSteering
-        case requiredCapabilities, preferredModel, runOptions, schedule, createdAt, updatedAt
+        case requiredCapabilities, preferredModel, runTimeoutSeconds, runOptions, schedule, createdAt, updatedAt
     }
 
     private enum LegacyKeys: String, CodingKey {
@@ -273,6 +278,7 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
         // Names, not the enum, so a capability added by a newer build does not make the whole file unreadable.
         requiredCapabilities = ModelCapability.parse(try c.decodeIfPresent([String].self, forKey: .requiredCapabilities) ?? []).capabilities
         preferredModel = try c.decodeIfPresent(String.self, forKey: .preferredModel).map(ModelChoice.canonical)
+        runTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .runTimeoutSeconds).map { max(RunTimeout.unlimited, $0) }
         runOptions = try c.decodeIfPresent(RunOptions.self, forKey: .runOptions) ?? RunOptions()
         schedule = try c.decodeIfPresent(TaskSchedule.self, forKey: .schedule)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
@@ -292,6 +298,7 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
         try c.encode(allowsSteering, forKey: .allowsSteering)
         try c.encode(requiredCapabilities.sorted().map(\.rawValue), forKey: .requiredCapabilities)
         try c.encodeIfPresent(preferredModel, forKey: .preferredModel)
+        try c.encodeIfPresent(runTimeoutSeconds, forKey: .runTimeoutSeconds)
         try c.encode(runOptions, forKey: .runOptions)
         try c.encodeIfPresent(schedule, forKey: .schedule)
         try c.encode(createdAt, forKey: .createdAt)
@@ -302,6 +309,9 @@ nonisolated struct AgentTask: Identifiable, Codable, Hashable, Sendable {
 
     /// Interactive tasks need a person at the keyboard, so they cannot be scheduled.
     var canBeScheduled: Bool { !allowsSteering }
+
+    /// Interactive tasks wait on the person as long as it takes, so no time limit applies to them.
+    var canHaveTimeLimit: Bool { !allowsSteering }
 
     /// IDs of every attached server.
     var mcpServerIDs: [UUID] { toolAttachments.map(\.serverID) }

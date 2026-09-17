@@ -45,13 +45,14 @@
       <ol>
         <li><a href="#shell-one-tool-run">shell — one tool, run</a></li>
         <li><a href="#context-one-tool-clear">context — one tool, clear</a></li>
+        <li><a href="#progress-one-tool-update">progress — one tool, update</a></li>
         <li><a href="#ask-user-only-when-allowssteering-is-true">ask_user — only when allowsSteering is true</a></li>
         <li><a href="#renamed-from-bash">Renamed from Bash</a></li>
       </ol>
       <p class="small muted" style="margin-top: 16px">Rendered from <code>skills/ai-task-author/references/builtin-tools.md</code> in the repository.</p>
     </nav>
     <article class="prose">
-<p>The app ships two built-in packs, <strong>Shell</strong> (<code>shell__run</code>) and <strong>Context</strong> (<code>context__clear</code>). They need nothing installed. The user can turn either off in Settings › Tools; an imported task that needs one imports with a warning and fails at run time until it is re-enabled.</p>
+<p>The app ships three built-in packs, <strong>Shell</strong> (<code>shell__run</code>), <strong>Context</strong> (<code>context__clear</code>) and <strong>Progress</strong> (<code>progress__update</code>). They need nothing installed. The user can turn any of them off in Settings › Tools; an imported task that needs one imports with a warning and fails at run time until it is re-enabled.</p>
 <h2 id="shell-one-tool-run"><code>shell</code> — one tool, <code>run</code></h2>
 <div class="table-scroll"><table><thead><tr><th>Tool</th><th>What it does</th><th>Arguments (<code>*</code> required)</th></tr></thead><tbody><tr><td><code>run</code></td><td>Runs a command line in the user&#x27;s login shell (<code>zsh -l -c</code>) and returns <code>$ command</code>, cwd, exit code, timing, stdout and stderr.</td><td><code>command*</code>, <code>working_directory</code> (default: the folder set in Settings › Tools), <code>timeout_seconds</code> (Settings default 60, max 600)</td></tr></tbody></table></div>
 <p>Behaviour:</p>
@@ -90,6 +91,19 @@
 4. Call context__clear with a note like: &quot;Done: a.md, b.md. Remaining: c.md, d.md. Output goes next to each file as &lt;name&gt;.summary.md.&quot;
 5. Repeat from step 2 with the next remaining file. When none remain, reply &quot;All files done.&quot; and stop.</code></pre>
 <p>Put the list of remaining files in the note; after a clear the model no longer remembers the <code>find</code> output.</p>
+<h2 id="progress-one-tool-update"><code>progress</code> — one tool, <code>update</code></h2>
+<div class="table-scroll"><table><thead><tr><th>Tool</th><th>What it does</th><th>Arguments (<code>*</code> required)</th></tr></thead><tbody><tr><td><code>update</code></td><td>Records how far a multi-step job has got. The run window shows a small bar and <code>done/total</code> in the toolbar, next to the Thinking and Tool Calls toggles.</td><td><code>done*</code> (0 … total), <code>total*</code> (≥ 1)</td></tr></tbody></table></div>
+<p>Attach it with <code>{ &quot;builtin&quot;: &quot;progress&quot; }</code> when the job has a countable list: files in a folder, pages, records, or numbered steps in the prompt. Without it the user only sees the transcript scroll by.</p>
+<p>Behaviour:</p>
+<ul>
+<li>Plain integers; the tool accepts numbers sent as strings. <code>done</code> above <code>total</code>, a <code>total</code> below 1, or a missing argument returns an error that tells the model what to pass. Nothing else happens: the value is display only.</li>
+<li>Each call replaces the previous value; the last one stays in the toolbar after the run ends. The bar turns green when <code>done</code> equals <code>total</code>.</li>
+<li>Works on every model, the Apple on-device model included.</li>
+<li>Survives <code>context__clear</code> (the app keeps it, not the conversation), so a task that clears between items can still report progress; after a clear the model must get <code>done</code> and <code>total</code> from its note.</li>
+</ul>
+<p>Prompt line that small models follow:</p>
+<pre><code>After finishing each file, call progress__update with done = number of files finished so far and total = number of files found in step 1.</code></pre>
+<p>Call <code>progress__update</code> with <code>done</code> equal to <code>total</code> as the last step before the final reply, so the bar completes.</p>
 <h2 id="ask-user-only-when-allowssteering-is-true"><code>ask_user</code> — only when <code>allowsSteering</code> is <code>true</code></h2>
 <div class="table-scroll"><table><thead><tr><th>Tool</th><th>What it does</th><th>Arguments</th></tr></thead><tbody><tr><td><code>ask_user</code></td><td>Shows a question in the run window and suspends until the user answers (or stops the run).</td><td><code>question*</code></td></tr></tbody></table></div>
 <p>Not attached in <code>tools[]</code>; the app adds it automatically for interactive tasks. Tell the model when to use it (&quot;ask_user before any destructive step&quot;, &quot;if the brief is ambiguous, ask_user once, then proceed&quot;) and when not to (&quot;do not ask for confirmation of read-only steps&quot;). Non-interactive tasks should be written to finish without questions.</p>

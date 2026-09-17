@@ -44,6 +44,20 @@ struct GeneralSettingsView: View {
         )
     }
 
+    private var limitsRuns: Binding<Bool> {
+        Binding(
+            get: { settings.runTimeoutSeconds > RunTimeout.unlimited },
+            set: { on in settings.runTimeoutSeconds = on ? RunTimeout.suggestedSeconds : RunTimeout.unlimited }
+        )
+    }
+
+    private var runTimeoutMinutes: Binding<Int> {
+        Binding(
+            get: { RunTimeout.minutes(from: settings.runTimeoutSeconds) },
+            set: { settings.runTimeoutSeconds = RunTimeout.seconds(fromMinutes: $0) }
+        )
+    }
+
     var body: some View {
         @Bindable var settings = settings
         Form {
@@ -62,6 +76,17 @@ struct GeneralSettingsView: View {
                 .pickerStyle(.segmented)
             } footer: {
                 Text("System follows the macOS setting. Light and Dark apply to every window immediately. Text size scales all text in the app, including prompts and transcripts.")
+                .textStyle(.callout)
+            }
+            Section {
+                Toggle("Stop runs that take too long", isOn: limitsRuns)
+                if settings.runTimeoutSeconds > RunTimeout.unlimited {
+                    LabeledContent("Stop after") {
+                        MinutesStepper(minutes: runTimeoutMinutes)
+                    }
+                }
+            } footer: {
+                Text("Counts the time the model and its tools spend working; waiting for your approval does not. A run that reaches the limit is stopped and reported as failed. A task can set its own limit, or none, in its Time limit section. Interactive tasks are never limited, since they wait on you.")
                 .textStyle(.callout)
             }
             Section {

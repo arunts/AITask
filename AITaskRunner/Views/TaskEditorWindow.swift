@@ -14,11 +14,15 @@ struct TaskEditorWindow: View {
                 TaskWizardView(draft: draft)
                     .id(draft.id)
             } else {
-                // No draft: the wizard saved or cancelled, so the window goes.
+                // No draft: the wizard saved or cancelled, or macOS restored the window at launch. The window goes.
                 Color.clear
                     .frame(minWidth: 400, minHeight: 300)
                     .task {
-                        try? await Task.sleep(for: .milliseconds(50))
+                        // The window can re-open with a fresh draft while this placeholder is still on screen. A
+                        // cancelled sleep means the wizard has taken over; dismissing then would run through the
+                        // close interceptor, cancel the new draft and close the window the moment it appeared.
+                        do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
+                        guard store.draft == nil else { return }
                         dismissWindow(id: Self.id)
                     }
             }

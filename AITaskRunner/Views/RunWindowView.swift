@@ -70,6 +70,10 @@ struct RunTranscriptView: View {
     @State private var input = ""
     @State private var showThinking = false
     @State private var showToolCalls = false
+    @State private var scrollPosition = ScrollPosition(edge: .bottom)
+    /// Whether the transcript keeps its end in view as it grows. Off once the user scrolls up to read;
+    /// on again when they scroll back down or press Jump to bottom.
+    @State private var followsEnd = true
     @FocusState private var inputFocused: Bool
 
     private var showsInput: Bool {
@@ -104,54 +108,95 @@ struct RunTranscriptView: View {
         }
     }
 
-    private static let bottomAnchor = "transcript-bottom"
+    /// What the scroll geometry tells us, minus the offset itself: when only the offset changed, the user scrolled.
+    private struct ScrollReading: Equatable {
+        var atEnd: Bool
+        var contentHeight: CGFloat
+        var containerHeight: CGFloat
+        var bottomInset: CGFloat
+    }
+
+    /// How close to the end still counts as "at the end".
+    private static let endTolerance: CGFloat = 40
 
     var body: some View {
         let blocks = visibleBlocks
         VStack(spacing: 0) {
             statusBar
             Divider()
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(blocks) { block in
-                            RunBlockView(block: block, modelName: runner.modelName, showThinking: showThinking) { decision in
-                                runner.resolveApproval(decision)
-                            }
-                            .padding(.vertical, 12)
-                            if block.id != blocks.last?.id {
-                                Divider()
-                            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(blocks) { block in
+                        RunBlockView(block: block, modelName: runner.modelName, showThinking: showThinking) { decision in
+                            runner.resolveApproval(decision)
                         }
-                        Color.clear
-                            .frame(height: 1)
-                            .id(Self.bottomAnchor)
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .defaultScrollAnchor(.bottom)
-                .scrollEdgeEffectStyle(.soft, for: .bottom)
-                .safeAreaBar(edge: .bottom) {
-                    if showsInput {
-                        inputBar
+                        .padding(.vertical, 12)
+                        if block.id != blocks.last?.id {
+                            Divider()
+                        }
                     }
                 }
-                .onChange(of: transcriptSignature) {
-                    proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollPosition($scrollPosition)
+            .defaultScrollAnchor(.bottom, for: .initialOffset)
+            // While following, growth keeps the end in view; while reading, it leaves the text under the pointer alone.
+            .defaultScrollAnchor(followsEnd ? .bottom : .top, for: .sizeChanges)
+            .onScrollGeometryChange(for: ScrollReading.self) { geometry in
+                ScrollReading(
+                    atEnd: geometry.contentSize.height - geometry.visibleRect.maxY <= Self.endTolerance,
+                    contentHeight: geometry.contentSize.height,
+                    containerHeight: geometry.containerSize.height,
+                    bottomInset: geometry.contentInsets.bottom
+                )
+            } action: { old, new in
+                // Content growth, window resizes and the input bar appearing all move the end; only a plain scroll is the user's choice.
+                guard old.contentHeight == new.contentHeight, old.containerHeight == new.containerHeight, old.bottomInset == new.bottomInset else { return }
+                if new.atEnd != followsEnd {
+                    withAnimation(.snappy) { followsEnd = new.atEnd }
                 }
-                .onChange(of: showThinking) {
-                    proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
+            }
+            .overlay(alignment: .bottom) {
+                if !followsEnd {
+                    Button {
+                        withAnimation(.snappy) { followsEnd = true }
+                        scrollPosition.scrollTo(edge: .bottom)
+                    } label: {
+                        Label("Jump to bottom", systemImage: "arrow.down")
+                    }
+                    .buttonStyle(.glass)
+                    .controlSize(.small)
+                    .padding(.bottom, 12)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .onChange(of: showToolCalls) {
-                    proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
+            }
+            .scrollEdgeEffectStyle(.soft, for: .bottom)
+            .safeAreaBar(edge: .bottom) {
+                if showsInput {
+                    inputBar
                 }
+            }
+            .onChange(of: transcriptSignature) {
+                if followsEnd { scrollPosition.scrollTo(edge: .bottom) }
+            }
+            .onChange(of: showThinking) {
+                if followsEnd { scrollPosition.scrollTo(edge: .bottom) }
+            }
+            .onChange(of: showToolCalls) {
+                if followsEnd { scrollPosition.scrollTo(edge: .bottom) }
             }
         }
         .navigationTitle(runner.task.displayName)
         .navigationSubtitle(runner.modelTitle)
         .toolbar {
+            if let progress = runner.progress {
+                ToolbarItem(placement: .primaryAction) {
+                    RunProgressLabel(progress: progress)
+                }
+                ToolbarSpacer(.fixed, placement: .primaryAction)
+            }
             ToolbarItemGroup(placement: .primaryAction) {
                 if runner.isActive {
                     Button {

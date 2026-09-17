@@ -11,7 +11,7 @@ nonisolated enum ModelChoice: Hashable, Sendable, Codable {
     static let endpointPrefix = "endpoint:"
     /// Format saved before endpoints were namespaced: `local:<model id>`. Resolves to the endpoint migrated from those settings.
     static let legacyPrefix = "local:"
-    /// ID given to the single endpoint that existed before multiple endpoints were supported.
+    /// ID of the first endpoint on a fresh install; `local:` model references resolve to it.
     static let legacyEndpointID = UUID(uuidString: "00000000-0000-4000-8000-000000000001")!
 
     var rawValue: String {

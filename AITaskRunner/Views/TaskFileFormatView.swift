@@ -111,7 +111,7 @@ struct TaskFileFormatView: View {
 
         | Field | What it is |
         |---|---|
-        | `builtin` | A pack that ships inside the app: `"shell"` or `"context"`. Nothing to install. |
+        | `builtin` | A pack that ships inside the app: `"shell"`, `"context"` or `"progress"`. Nothing to install. |
         | `server` | The short name (slug) of an MCP server defined under `mcpServers`, or one you already have in Settings › Tools. |
         | `tools` | The exact tools to allow, as a list. `null` or leaving it out means every tool the source offers, including ones added later. Fewer tools help small models choose well. |
 

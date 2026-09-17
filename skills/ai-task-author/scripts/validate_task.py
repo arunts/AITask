@@ -21,8 +21,9 @@ CURRENT_VERSION = 1
 BUILTIN_TOOLS = {
     "shell": ["run"],
     "context": ["clear"],
+    "progress": ["update"],
 }
-BUILTIN_LABELS = {"shell": "Shell", "context": "Context"}
+BUILTIN_LABELS = {"shell": "Shell", "context": "Context", "progress": "Progress"}
 # Old pack names the app still accepts on import.
 BUILTIN_ALIASES = {"bash": "shell"}
 VARIABLE_KINDS = ("text", "file", "folder", "list")
@@ -339,7 +340,7 @@ def check_tools(entries, servers, report):
                 report.warn(f'{label}: "{builtin}" is the old name of the {BUILTIN_LABELS[BUILTIN_ALIASES[builtin]]} pack; the app accepts it, but write "{BUILTIN_ALIASES[builtin]}" and use {BUILTIN_ALIASES[builtin]}__ names in the prompts.')
                 builtin = BUILTIN_ALIASES[builtin]
             if not isinstance(builtin, str) or builtin not in BUILTIN_TOOLS:
-                report.error(f'{label}: unknown built-in pack "{builtin}" (use "shell" or "context").')
+                report.error(f'{label}: unknown built-in pack "{builtin}" (use "shell", "context" or "progress").')
                 continue
             pack = BUILTIN_TOOLS[builtin]
             if names is not None:

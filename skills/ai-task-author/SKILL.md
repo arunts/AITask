@@ -24,6 +24,7 @@ Your job: interview the user briefly, write the prompts, pick the tools, produce
 |---|---|
 | `shell__run` | Run a command line in the login shell, with per-command approval. Reading, writing, finding and moving files all go through it (`ls`, `cat`, `find`, `grep`, heredocs, `mv`). |
 | `context__clear` | Drop everything but the system prompt, the task and a note the model writes. For runs that work through many large files or items one at a time; not available on the Apple model. |
+| `progress__update` | Report `done` and `total` after each step, file or item; the run window shows it as a small done/total bar. For any job with a countable list of steps. |
 | `ask_user` | Ask the user a question mid-run (interactive tasks only; not listed in `tools`) |
 
 Shell commands are not confined to a folder; the user approves each one in the run window. Inside the AITaskRunner repo, `python3 scripts/list_builtin_tools.py` prints the live list from the Swift sources; `--check` confirms the validator agrees with them.
@@ -56,6 +57,7 @@ Read `references/task-format.md` for the exact JSON before writing. Guidance tha
 
 ### 4. Pick tools
 - Prefer the built-in shell: `{ "builtin": "shell" }`. It runs commands with per-command approval and covers files, git, brew, curl and anything else with a CLI. Recipes are in `references/builtin-tools.md`.
+- When a run works through a countable list (files, pages, records, numbered steps), add `{ "builtin": "progress" }` and tell the prompt to call `progress__update` with `done` and `total` after each item; the user then sees how far along it is. Pair it with the context pack below when the items are large.
 - When one run must process many large inputs one after another (every file in a folder, every page), add `{ "builtin": "context" }` and tell the prompt exactly when to call `context__clear` and what to put in the note (done, remaining, where output went). Save each item's output to disk first; the note is all the model keeps. The recipe is in `references/builtin-tools.md`.
 - Add an MCP server only when the shell cannot do it well, following the ladder in `references/mcp-servers.md`. Define it under `mcpServers` in the same shape Claude Desktop uses; the task refers to it by its slug. Tell the user what runtime to install (Node for `npx`, uv for `uvx`).
 - Never put API keys or tokens in the file. Leave `env` and `headers` out, and tell the user to add them in Settings › Tools after importing. If a header is structurally required, use an obvious placeholder such as `REPLACE_ME`.
@@ -73,7 +75,7 @@ Read `references/task-format.md` for the exact JSON before writing. Guidance tha
 ## What the importer refuses (errors)
 - Missing `"format": "AITaskDefinition"`, `"version": 1`, or a `"task"` object. (`"oddjobs-task"`, the old name, still imports.)
 - Empty `task.userPrompt`.
-- A `tools[]` entry that is neither `{"builtin": "shell" | "context", ...}` nor `{"server": "<slug>", ...}`, an unknown built-in pack, or an unknown built-in tool name.
+- A `tools[]` entry that is neither `{"builtin": "shell" | "context" | "progress", ...}` nor `{"server": "<slug>", ...}`, an unknown built-in pack, or an unknown built-in tool name.
 - A `server` slug with no definition under `mcpServers` (unless a server with that slug already exists in the app).
 - An `mcpServers` definition without `command` (stdio) or `url` (http).
 
@@ -82,7 +84,7 @@ Read `references/task-format.md` for the exact JSON before writing. Guidance tha
 - Variable keys are sanitized to letters, digits, `_`, `.`, `-`; spaces become `_`. Use the sanitized form in the prompts.
 - `tools[].server` must equal the slug of the `mcpServers` key: lowercase, `a-z`, `0-9` and `-` kept, everything else becomes `_`. Lowercase keys avoid surprises.
 - If the app already has a server with the same slug, the file's definition is ignored and the existing one is reused.
-- The Shell and Context packs can be turned off in Settings › Tools; the import succeeds with a warning.
+- The built-in packs (Shell, Context, Progress) can be turned off in Settings › Tools; the import succeeds with a warning.
 - `tools: null` (or omitted) means every tool the server offers, including ones added later.
 - `"builtin": "bash"` (the pack's old name) still imports as Shell, but prompts must say `shell__run`.
 - A name in `requires` other than `tools`, `vision` or `thinking` is dropped with a warning.

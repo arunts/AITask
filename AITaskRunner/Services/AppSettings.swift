@@ -6,16 +6,14 @@ import ServiceManagement
 /// UserDefaults-backed settings. Only endpoint configuration lives here; no run history is ever stored.
 @Observable
 final class AppSettings {
-    fileprivate enum Keys {
+    private enum Keys {
         static let endpoints = "endpoints"
-        /// Written before multiple endpoints existed; read once to migrate into `endpoints`.
-        static let legacyBaseURL = "local.baseURL"
-        static let legacyAPIKey = "local.apiKey"
         static let defaultModel = "run.defaultModel"
         static let appearance = "ui.appearance"
         static let contextWindows = "local.contextWindows"
         static let textSize = "ui.textSize"
         static let menuBarIcon = "ui.menuBarIcon"
+        static let runTimeout = "run.timeoutSeconds"
     }
 
     enum Appearance: String, CaseIterable, Identifiable {
@@ -101,6 +99,11 @@ final class AppSettings {
         didSet { defaults.set(textSize.rawValue, forKey: Keys.textSize) }
     }
 
+    /// Working-time limit for every run, in seconds; 0 means no limit. A task may set its own instead.
+    var runTimeoutSeconds: Int {
+        didSet { defaults.set(runTimeoutSeconds, forKey: Keys.runTimeout) }
+    }
+
     /// On: the app lives in the menu bar and stays out of the Dock. Off: a normal Dock app.
     var showsMenuBarIcon: Bool {
         didSet {
@@ -114,39 +117,22 @@ final class AppSettings {
            let saved = try? JSONDecoder().decode([OpenAICompatibleEndpoint].self, from: data) {
             endpoints = saved
         } else {
-            endpoints = [Self.migratedEndpoint(from: defaults)]
+            endpoints = [Self.initialEndpoint]
         }
         defaultModel = ModelChoice.canonical(defaults.string(forKey: Keys.defaultModel) ?? "")
         appearance = Appearance(rawValue: defaults.string(forKey: Keys.appearance) ?? "") ?? .system
-        contextWindows = Self.migratedContextWindows(defaults.dictionary(forKey: Keys.contextWindows) as? [String: Int] ?? [:])
+        contextWindows = defaults.dictionary(forKey: Keys.contextWindows) as? [String: Int] ?? [:]
         textSize = TextSize(rawValue: defaults.string(forKey: Keys.textSize) ?? "") ?? .standard
+        runTimeoutSeconds = max(RunTimeout.unlimited, defaults.integer(forKey: Keys.runTimeout))
         showsMenuBarIcon = defaults.object(forKey: Keys.menuBarIcon) as? Bool ?? true
     }
 
     // MARK: - Endpoints
 
-    /// The endpoint saved under the single-endpoint keys, or the first preset on a fresh install.
-    private static func migratedEndpoint(from defaults: UserDefaults) -> OpenAICompatibleEndpoint {
-        let url = defaults.string(forKey: Keys.legacyBaseURL) ?? OpenAICompatibleEndpoint.presets[0].url
-        let preset = OpenAICompatibleEndpoint.presets.first { $0.url.lowercased() == url.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-        return OpenAICompatibleEndpoint(
-            id: ModelChoice.legacyEndpointID,
-            name: preset?.name ?? "Endpoint 1",
-            baseURL: url,
-            apiKey: defaults.string(forKey: Keys.legacyAPIKey) ?? ""
-        )
-    }
-
-    /// Window sizes were keyed by bare model id before endpoints were namespaced; those belong to the migrated endpoint.
-    private static func migratedContextWindows(_ stored: [String: Int]) -> [String: Int] {
-        var result: [String: Int] = [:]
-        for (key, value) in stored {
-            let canonical = key.hasPrefix(ModelChoice.endpointPrefix)
-                ? key
-                : ModelChoice.openAICompatible(endpointID: ModelChoice.legacyEndpointID, model: key).rawValue
-            result[canonical] = value
-        }
-        return result
+    /// The endpoint a fresh install starts with: the first preset, under the fixed ID that `local:` model references resolve to.
+    private static var initialEndpoint: OpenAICompatibleEndpoint {
+        let preset = OpenAICompatibleEndpoint.presets[0]
+        return OpenAICompatibleEndpoint(id: ModelChoice.legacyEndpointID, name: preset.name, baseURL: preset.url)
     }
 
     private func saveEndpoints() {
@@ -241,30 +227,6 @@ nonisolated enum AppPaths {
     static var supportDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base.appending(path: "AITaskRunner", directoryHint: .isDirectory)
-    }
-}
-
-/// One-time carry-over from when the app was called OddJobs: settings lived under the old bundle
-/// identifier and files under Application Support/OddJobs. Runs before anything reads either place and
-/// does nothing once the new locations hold data. Delete before the first public release.
-nonisolated enum RebrandMigration {
-    private static let legacyBundleID = "ArunThotta.OddJobs"
-    private static let legacyFolderName = "OddJobs"
-
-    static func run() {
-        let fileManager = FileManager.default
-        let folder = AppPaths.supportDirectory
-        let legacyFolder = folder.deletingLastPathComponent().appending(path: legacyFolderName, directoryHint: .isDirectory)
-        if !fileManager.fileExists(atPath: folder.path), fileManager.fileExists(atPath: legacyFolder.path) {
-            try? fileManager.moveItem(at: legacyFolder, to: folder)
-        }
-
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: AppSettings.Keys.endpoints) == nil,
-           defaults.object(forKey: AppSettings.Keys.legacyBaseURL) == nil,
-           let legacy = defaults.persistentDomain(forName: legacyBundleID) {
-            for (key, value) in legacy { defaults.set(value, forKey: key) }
-        }
     }
 }
 

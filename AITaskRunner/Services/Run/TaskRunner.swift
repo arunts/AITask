@@ -61,6 +61,9 @@ final class TaskRunner {
     let variableValues: [String: String]
     /// A scheduled run with nobody watching: tools that would ask for approval run without it.
     let unattended: Bool
+    /// Working-time budget in seconds, if any. Model and tool time count; waiting for an approval does not.
+    /// Interactive tasks never have one.
+    let timeoutSeconds: Int?
 
     /// How much of the model's context the conversation occupies, as last reported.
     struct ContextUsage: Equatable {
@@ -74,9 +77,13 @@ final class TaskRunner {
     }
 
     private(set) var blocks: [RunBlock] = []
-    private(set) var status: Status = .preparing
+    private(set) var status: Status = .preparing {
+        didSet { syncClock() }
+    }
     private(set) var toolNames: [String] = []
     private(set) var contextUsage: ContextUsage?
+    /// Progress the model last reported through `progress__update`, if the task attaches that tool.
+    private(set) var progress: RunProgress?
 
     private let registry: MCPRegistry
     private let settings: AppSettings
@@ -86,6 +93,14 @@ final class TaskRunner {
     private var runTask: Task<Void, Never>?
     private var queuedInputs: [(block: RunBlock, text: String)] = []
     private var pendingAnswer: CheckedContinuation<String, Never>?
+
+    /// Budget not yet spent while the clock was running.
+    private var timeoutRemaining: Duration = .zero
+    private var clockStartedAt: ContinuousClock.Instant?
+    /// Sleeps for the remaining budget, then ends the run. Nil while the clock is paused.
+    private var watchdog: Task<Void, Never>?
+    /// Set once the budget ran out; the transcript and status already say so when cancellation lands.
+    private(set) var timedOut = false
 
     enum ApprovalDecision {
         case allow
@@ -106,6 +121,9 @@ final class TaskRunner {
         self.providers = providers
         self.variableValues = task.resolvedVariableValues(overrides: variableValues)
         self.unattended = unattended
+        let timeoutSeconds = RunTimeout.effective(for: task, appDefault: settings.runTimeoutSeconds)
+        self.timeoutSeconds = timeoutSeconds
+        self.timeoutRemaining = .seconds(timeoutSeconds ?? 0)
     }
 
     /// Engines call this whenever the provider reports (or the framework counts) the prompt size.
@@ -116,6 +134,11 @@ final class TaskRunner {
         case .openAICompatible: budget = contextWindow?.tokens
         }
         contextUsage = ContextUsage(used: used, window: contextWindow?.tokens, windowSource: contextWindow?.source, budget: budget, isExact: isExact)
+    }
+
+    /// The `progress__update` tool calls this with a validated value.
+    func reportProgress(_ progress: RunProgress) {
+        self.progress = progress
     }
 
     /// Text with this run's `{{variables}}` filled in.
@@ -154,6 +177,7 @@ final class TaskRunner {
             addNotice("Variables: " + summary.joined(separator: " · "))
         }
         if unattended { addNotice("Scheduled run: commands run without asking for approval.") }
+        if let timeoutSeconds { addNotice("Time limit: \(RunTimeout.label(seconds: timeoutSeconds)) of work.") }
         runTask = Task { await prepareAndRun() }
     }
 
@@ -267,11 +291,14 @@ final class TaskRunner {
             }
             pending = dequeueInputs()
         }
+        // A cancel that landed after the last checkpoint must not be reported as a normal finish.
+        try Task.checkCancellation()
         status = task.allowsSteering ? .idle : .finished
     }
 
     private func handle(_ error: any Error) {
         if error is CancellationError {
+            guard !timedOut else { return }
             status = .stopped
             addNotice("Stopped.")
         } else {
@@ -279,6 +306,48 @@ final class TaskRunner {
             status = .failed(error.localizedDescription)
             blocks.append(RunBlock(role: .error, text: error.localizedDescription))
         }
+    }
+
+    // MARK: - Time limit
+
+    /// The clock runs while the model or a tool is working and pauses while the run waits for an approval.
+    private func syncClock() {
+        guard timeoutSeconds != nil else { return }
+        switch status {
+        case .preparing, .running: resumeClock()
+        default: pauseClock()
+        }
+    }
+
+    private func resumeClock() {
+        guard watchdog == nil else { return }
+        clockStartedAt = .now
+        let remaining = timeoutRemaining
+        watchdog = Task { [weak self] in
+            try? await Task.sleep(for: remaining)
+            guard !Task.isCancelled else { return }
+            self?.timeOut()
+        }
+    }
+
+    private func pauseClock() {
+        guard let watchdog else { return }
+        watchdog.cancel()
+        self.watchdog = nil
+        if let clockStartedAt {
+            timeoutRemaining = max(.zero, timeoutRemaining - clockStartedAt.duration(to: .now))
+            self.clockStartedAt = nil
+        }
+    }
+
+    /// The budget is spent: the run is over now, whatever the engine is still doing.
+    private func timeOut() {
+        guard isActive, let timeoutSeconds else { return }
+        timedOut = true
+        let message = "Timed out after \(RunTimeout.label(seconds: timeoutSeconds)) of work."
+        blocks.append(RunBlock(role: .error, text: message))
+        status = .failed(message)
+        stop()
     }
 
     // MARK: - Engine callbacks

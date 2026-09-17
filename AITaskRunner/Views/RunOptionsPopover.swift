@@ -82,7 +82,7 @@ private struct RunOptionsForm: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
-        .frame(width: 460, height: choice.isApple ? 520 : 600)
+        .frame(width: 460, height: choice.isApple ? 520 : 700)
         .onAppear {
             stopText = options.openAICompatible.stopSequences.joined(separator: "\n")
             stopOn = !options.openAICompatible.stopSequences.isEmpty
@@ -145,6 +145,24 @@ private struct RunOptionsForm: View {
             Text("Repetition")
         } footer: {
             Text("Sent as presence_penalty and frequency_penalty.")
+            .textStyle(.callout)
+        }
+        Section {
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(isOn: $options.openAICompatible.keepsLatestReasoningOnly) {
+                    Text("Keep only the latest thinking")
+                }
+                .toggleStyle(.checkbox)
+                Text("Each request carries the thinking from the most recent reply only; older reasoning is dropped whether or not the window is full. Saves context on long tool-calling runs. The model rebuilds its plan from the tool results, so keep this off for tasks whose reasoning holds state that nothing else records.")
+                    .textStyle(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 20)
+            }
+        } header: {
+            Text("Context")
+        } footer: {
+            Text("Applied by the app before each request; nothing is sent to the server. Off: thinking stays until the context is nearly full.")
             .textStyle(.callout)
         }
     }

@@ -81,6 +81,46 @@ struct TaskSummaryView: View {
         )
     }
 
+    private enum TimeLimitMode: Hashable {
+        case appSetting
+        case unlimited
+        case custom
+    }
+
+    /// The stored task's choice; the app setting when it has none.
+    private var timeLimitMode: Binding<TimeLimitMode> {
+        Binding(
+            get: {
+                switch store.task(id: task.id)?.runTimeoutSeconds ?? task.runTimeoutSeconds {
+                case nil: return .appSetting
+                case RunTimeout.unlimited?: return .unlimited
+                default: return .custom
+                }
+            },
+            set: { mode in
+                guard var stored = store.task(id: task.id) else { return }
+                switch mode {
+                case .appSetting: stored.runTimeoutSeconds = nil
+                case .unlimited: stored.runTimeoutSeconds = RunTimeout.unlimited
+                case .custom:
+                    stored.runTimeoutSeconds = settings.runTimeoutSeconds > RunTimeout.unlimited ? settings.runTimeoutSeconds : RunTimeout.suggestedSeconds
+                }
+                store.update(stored)
+            }
+        )
+    }
+
+    private var timeLimitMinutes: Binding<Int> {
+        Binding(
+            get: { RunTimeout.minutes(from: store.task(id: task.id)?.runTimeoutSeconds ?? task.runTimeoutSeconds ?? settings.runTimeoutSeconds) },
+            set: { minutes in
+                guard var stored = store.task(id: task.id) else { return }
+                stored.runTimeoutSeconds = RunTimeout.seconds(fromMinutes: minutes)
+                store.update(stored)
+            }
+        )
+    }
+
     private var subtitle: String {
         let traits = task.traits(toolCount: registry.callableToolNames(for: task).count)
         return "\(traits) · Updated \(task.updatedAt.formatted(.relative(presentation: .named)))"
@@ -169,6 +209,16 @@ struct TaskSummaryView: View {
                             scheduleFootnote
                                 .textStyle(.callout)
                         }
+                    }
+                }
+                if task.canHaveTimeLimit {
+                    GroupedSection {
+                        timeLimitRows
+                    } header: {
+                        Text("Time limit")
+                    } footer: {
+                        Text("Counts the time the model and its tools spend working; waiting for your approval does not. A run that reaches the limit is stopped and reported as failed. This choice stays on this Mac and is not written into exported task files.")
+                            .textStyle(.callout)
                     }
                 }
                 GroupedSection {
@@ -416,6 +466,30 @@ struct TaskSummaryView: View {
         if task.schedule != nil {
             let model = task.preferredModel.flatMap { ModelChoice(rawValue: $0) }.map { settings.displayName(for: $0) } ?? "the chosen model"
             Text("Runs happen only while AITaskRunner is open, one at a time, using \(model). Nothing from a run is stored; only when it ended and whether it succeeded.")
+        }
+    }
+
+    @ViewBuilder
+    private var timeLimitRows: some View {
+        LabeledContent("Stop the run after") {
+            Picker("Time limit", selection: timeLimitMode) {
+                Text(settings.runTimeoutSeconds > RunTimeout.unlimited
+                     ? "App setting (\(RunTimeout.label(seconds: settings.runTimeoutSeconds)))"
+                     : "App setting (no limit)")
+                    .tag(TimeLimitMode.appSetting)
+                Text("No limit").tag(TimeLimitMode.unlimited)
+                Text("Custom").tag(TimeLimitMode.custom)
+            }
+            .labelsHidden()
+            .fixedSize()
+        }
+        .groupedRow()
+        if timeLimitMode.wrappedValue == .custom {
+            Divider().padding(.leading, 12)
+            LabeledContent("Limit") {
+                MinutesStepper(minutes: timeLimitMinutes)
+            }
+            .groupedRow()
         }
     }
 

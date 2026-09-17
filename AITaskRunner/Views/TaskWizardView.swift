@@ -2,21 +2,19 @@ import AppKit
 import SwiftUI
 
 /// Wizard used both to create and to edit a task.
-/// Step 1: name + system prompt (persona and binding rules). Step 2: user prompt + tools + variables.
-/// Step 3, for tasks without steering: an optional schedule.
+/// Step 1: system prompt + user prompt, with the tools and variables they reference.
+/// Step 2: name, interactive steering and, for tasks without steering, an optional schedule.
 struct TaskWizardView: View {
     enum Step: Int, CaseIterable, Identifiable {
-        case identity
         case composer
-        case schedule
+        case details
 
         var id: Int { rawValue }
 
         var title: String {
             switch self {
-            case .identity: return "Name & Persona"
-            case .composer: return "Prompt & Tools"
-            case .schedule: return "Schedule"
+            case .composer: return "Prompts & Tools"
+            case .details: return "Name & Schedule"
             }
         }
     }
@@ -26,7 +24,7 @@ struct TaskWizardView: View {
     @Environment(TaskStore.self) private var store
     @Environment(ProviderHub.self) private var providers
     @State private var task: AgentTask
-    @State private var step: Step = .identity
+    @State private var step: Step = .composer
     @State private var confirmDiscard = false
 
     init(draft: TaskDraft) {
@@ -35,9 +33,6 @@ struct TaskWizardView: View {
     }
 
     private var hasChanges: Bool { task != draft.task }
-
-    /// Interactive tasks skip the schedule step.
-    private var steps: [Step] { task.canBeScheduled ? Step.allCases : [.identity, .composer] }
 
     private var duplicateKeys: Set<String> {
         var seen = Set<String>()
@@ -63,7 +58,9 @@ struct TaskWizardView: View {
         return nil
     }
 
-    private var scheduleProblem: String? {
+    /// What still blocks saving from the details step.
+    private var detailsProblem: String? {
+        if !hasName { return "Give the task a name" }
         guard task.canBeScheduled, task.schedule != nil else { return nil }
         guard let raw = task.preferredModel, let choice = ModelChoice(rawValue: raw) else {
             return "Choose a model for the schedule"
@@ -75,7 +72,7 @@ struct TaskWizardView: View {
         return nil
     }
 
-    private var saveProblem: String? { composerProblem ?? scheduleProblem }
+    private var saveProblem: String? { composerProblem ?? detailsProblem }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -83,19 +80,17 @@ struct TaskWizardView: View {
             Divider()
             Group {
                 switch step {
-                case .identity:
-                    IdentityStep(task: $task) { if hasName { step = .composer } }
                 case .composer:
                     ComposerStep(task: $task, duplicateKeys: duplicateKeys)
-                case .schedule:
-                    ScheduleStep(task: $task)
+                case .details:
+                    DetailsStep(task: $task) { save() }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             Divider()
             footer
         }
-        .frame(minWidth: 900, maxWidth: .infinity, minHeight: 640, maxHeight: .infinity)
+        .frame(minWidth: 980, maxWidth: .infinity, minHeight: 700, maxHeight: .infinity)
         .navigationTitle(draft.isNew ? "New Task" : "Edit “\(draft.task.displayName)”")
         .background(WindowCloseInterceptor { cancel() })
         .confirmationDialog("Discard changes to this task?", isPresented: $confirmDiscard) {
@@ -107,7 +102,7 @@ struct TaskWizardView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 20) {
-            StepIndicator(current: step, steps: steps)
+            StepIndicator(current: step)
             Spacer()
         }
         .padding(.horizontal, 24)
@@ -120,23 +115,12 @@ struct TaskWizardView: View {
                 .keyboardShortcut(.cancelAction)
             Spacer()
             switch step {
-            case .identity:
-                Button("Next") { step = .composer }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!hasName)
-                    .help(hasName ? "Continue to the prompt and tools" : "Give the task a name first")
             case .composer:
-                Button("Back") { step = .identity }
-                if task.canBeScheduled {
-                    Button("Next") { step = .schedule }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(composerProblem != nil)
-                        .help(composerProblem ?? "Continue to scheduling")
-                } else {
-                    saveButton
-                }
-            case .schedule:
+                Button("Next") { step = .details }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(composerProblem != nil)
+                    .help(composerProblem ?? "Continue to the name and schedule")
+            case .details:
                 Button("Back") { step = .composer }
                 saveButton
             }
@@ -167,9 +151,11 @@ struct TaskWizardView: View {
         saved.name = saved.name.trimmingCharacters(in: .whitespacesAndNewlines)
         saved.variables.removeAll { $0.key.isEmpty }
         if !saved.canBeScheduled { saved.schedule = nil }
+        if !saved.canHaveTimeLimit { saved.runTimeoutSeconds = nil }
         // A run while the editor was open may have remembered new values or added list entries; keep them.
         if let current = store.task(id: saved.id) {
             saved.variableValues = current.variableValues
+            saved.runTimeoutSeconds = current.runTimeoutSeconds
             for index in saved.variables.indices where saved.variables[index].kind == .list {
                 let id = saved.variables[index].id
                 guard let stored = current.variables.first(where: { $0.id == id }) else { continue }
@@ -192,7 +178,7 @@ struct TaskWizardView: View {
 /// Shows where you are; Back and Next do the moving.
 private struct StepIndicator: View {
     let current: TaskWizardView.Step
-    let steps: [TaskWizardView.Step]
+    private let steps = TaskWizardView.Step.allCases
 
     var body: some View {
         HStack(spacing: 6) {
@@ -217,60 +203,141 @@ private struct StepIndicator: View {
     }
 }
 
-// MARK: - Step 1: name + system prompt
+// MARK: - Step 1: system prompt + user prompt, with tools and variables
 
-private struct IdentityStep: View {
+/// Which prompt editor takes the next inserted token: the one edited last.
+private enum PromptTarget {
+    case system
+    case user
+}
+
+private struct ComposerStep: View {
     @Binding var task: AgentTask
-    let onNext: () -> Void
+    let duplicateKeys: Set<String>
 
     @Environment(MCPRegistry.self) private var registry
-    @State private var insertion: String?
+    @State private var systemInsertion: String?
+    @State private var userInsertion: String?
+    @State private var target: PromptTarget = .user
     @State private var showGuide = false
-    @FocusState private var nameFocused: Bool
+    /// Share of the prompt area given to the system prompt.
+    @State private var split: CGFloat = 1 / 3
+    @State private var dragStartHeight: CGFloat?
+
+    private static let handleHeight: CGFloat = 16
+    private static let minSystemHeight: CGFloat = 96
+    private static let minUserHeight: CGFloat = 180
 
     var body: some View {
-        Form {
-            Section("Name") {
-                TextField("Name", text: $task.name)
-                    .labelsHidden()
-                    .textStyle(.title3)
-                    .controlSize(.large)
-                    .focused($nameFocused)
-                    .onSubmit(onNext)
+        HSplitView {
+            VStack(alignment: .leading, spacing: 8) {
+                // The system prompt gets a third of the height and the user prompt the rest, until the
+                // divider between them is dragged. (VSplitView ignores ideal heights and halves the space.)
+                GeometryReader { geometry in
+                    let total = max(geometry.size.height - Self.handleHeight, Self.minSystemHeight + Self.minUserHeight)
+                    let systemHeight = min(max(total * split, Self.minSystemHeight), total - Self.minUserHeight)
+                    VStack(spacing: 0) {
+                        systemPane
+                            .frame(height: systemHeight)
+                        splitHandle(total: total, systemHeight: systemHeight)
+                        userPane
+                            .frame(maxHeight: .infinity)
+                    }
+                }
+                Text("Drag a tool or variable in from the panel, or click one to insert it into the prompt you edited last. Blue names are tools the model may call, purple ones are variables filled in before each run. Typing them works too: server__tool and {{key}}.")
+                    .textStyle(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Section {
-                PromptTextView(
-                    text: $task.systemPrompt,
-                    insertion: $insertion,
-                    highlightPrefixes: registry.highlightPrefixes(for: task),
-                    highlightNames: registry.highlightNames(for: task),
-                    highlightVariables: task.variableKeys
-                )
-                .frame(height: 440)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
-                .padding(.vertical, 4)
-            } header: {
-                HStack {
-                    Text("System prompt")
-                    Text("Optional")
-                        .foregroundStyle(.tertiary)
-                    Spacer()
-                    Button("Examples…") { showGuide.toggle() }
-                        .controlSize(.small)
-                        .popover(isPresented: $showGuide) {
-                            SystemPromptGuide()
-                        }
+            .padding(20)
+            .frame(minWidth: 480, maxWidth: .infinity, maxHeight: .infinity)
+
+            ComposerSidePanel(task: $task, duplicateKeys: duplicateKeys) { token in
+                switch target {
+                case .system: systemInsertion = token
+                case .user: userInsertion = token
                 }
             }
+            .frame(minWidth: 300, idealWidth: 360, maxWidth: 520, maxHeight: .infinity)
         }
-        .formStyle(.grouped)
-        .defaultFocus($nameFocused, true)
-        .task {
-            // In a freshly opened window the default focus can miss; ask again once the window is key.
-            try? await Task.sleep(for: .milliseconds(120))
-            nameFocused = true
+    }
+
+    private var systemPane: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("System prompt")
+                    .textStyle(.headline)
+                Text("Optional")
+                    .textStyle(.callout)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+                Button("Examples…") { showGuide.toggle() }
+                    .controlSize(.small)
+                    .popover(isPresented: $showGuide) {
+                        SystemPromptGuide()
+                    }
+            }
+            editor(
+                text: $task.systemPrompt,
+                insertion: $systemInsertion,
+                placeholder: "Who the model is, its rules and the shape of its answers. Sent before every run of this task.",
+                target: .system
+            )
         }
+    }
+
+    private var userPane: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("User prompt")
+                    .textStyle(.headline)
+                Text("Required")
+                    .textStyle(.callout)
+                    .foregroundStyle(.tertiary)
+            }
+            editor(
+                text: $task.userPrompt,
+                insertion: $userInsertion,
+                placeholder: "The job to do on each run, step by step.",
+                target: .user
+            )
+        }
+        .padding(.top, 10)
+    }
+
+    /// Draggable divider between the two prompts.
+    private func splitHandle(total: CGFloat, systemHeight: CGFloat) -> some View {
+        Divider()
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.handleHeight)
+            .contentShape(Rectangle())
+            .pointerStyle(.rowResize)
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        let start = dragStartHeight ?? systemHeight
+                        dragStartHeight = start
+                        let wanted = start + value.translation.height
+                        let clamped = min(max(wanted, Self.minSystemHeight), total - Self.minUserHeight)
+                        split = clamped / total
+                    }
+                    .onEnded { _ in dragStartHeight = nil }
+            )
+            .accessibilityLabel("Resize prompts")
+    }
+
+    private func editor(text: Binding<String>, insertion: Binding<String?>, placeholder: String, target: PromptTarget) -> some View {
+        PromptTextView(
+            text: text,
+            insertion: insertion,
+            placeholder: placeholder,
+            highlightPrefixes: registry.highlightPrefixes(for: task),
+            highlightNames: registry.highlightNames(for: task),
+            highlightVariables: task.variableKeys,
+            onFocus: { self.target = target }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
     }
 }
 
@@ -331,59 +398,56 @@ private struct SystemPromptGuide: View {
     }
 }
 
-// MARK: - Step 2: user prompt + tools + variables
+// MARK: - Step 2: name, steering and schedule
 
-private struct ComposerStep: View {
+private struct DetailsStep: View {
     @Binding var task: AgentTask
-    let duplicateKeys: Set<String>
+    let onSubmit: () -> Void
 
-    @Environment(MCPRegistry.self) private var registry
-    @State private var insertion: String?
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
-        HSplitView {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Text("User prompt")
-                        .textStyle(.headline)
-                    Text("Required")
-                        .textStyle(.callout)
-                        .foregroundStyle(.tertiary)
-                }
-                PromptTextView(
-                    text: $task.userPrompt,
-                    insertion: $insertion,
-                    highlightPrefixes: registry.highlightPrefixes(for: task),
-                    highlightNames: registry.highlightNames(for: task),
-                    highlightVariables: task.variableKeys
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
-                Text("Drag a tool or variable in from the panel, or click one to insert it at the cursor. Blue names are tools the model may call, purple ones are variables filled in before each run. Typing them works too: server__tool and {{key}}.")
-                    .textStyle(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        Form {
+            Section("Name") {
+                TextField("Name", text: $task.name)
+                    .labelsHidden()
+                    .textStyle(.title3)
+                    .controlSize(.large)
+                    .focused($nameFocused)
+                    .onSubmit(onSubmit)
             }
-            .padding(20)
-            .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
-
-            ComposerSidePanel(task: $task, duplicateKeys: duplicateKeys) { insertion = $0 }
-                .frame(minWidth: 300, idealWidth: 340, maxWidth: 480, maxHeight: .infinity)
+            Section {
+                Toggle("Interactive steering", isOn: $task.allowsSteering)
+            } header: {
+                Text("Interaction")
+            } footer: {
+                Text("Adds a chat box to the run window and an ask_user tool so the model can pause and ask you questions. Interactive tasks cannot run on a schedule.")
+                    .textStyle(.callout)
+            }
+            ScheduleSections(task: $task)
+        }
+        .formStyle(.grouped)
+        .defaultFocus($nameFocused, true)
+        .task {
+            // The default focus can miss when the step appears; ask again once it is on screen.
+            try? await Task.sleep(for: .milliseconds(120))
+            nameFocused = true
         }
     }
 }
 
-// MARK: - Step 3: schedule (non-interactive tasks only)
-
-private struct ScheduleStep: View {
+/// Schedule sections of the details step. Greyed out while steering is on, since an interactive task
+/// cannot run unattended; `save()` drops any schedule such a task still carries.
+private struct ScheduleSections: View {
     @Binding var task: AgentTask
 
     @Environment(ProviderHub.self) private var providers
-    @Environment(MCPRegistry.self) private var registry
+
+    private var isScheduled: Bool { task.canBeScheduled && task.schedule != nil }
 
     private var enabled: Binding<Bool> {
         Binding(
-            get: { task.schedule != nil },
+            get: { isScheduled },
             set: { on in task.schedule = on ? (task.schedule ?? TaskSchedule()) : nil }
         )
     }
@@ -411,48 +475,53 @@ private struct ScheduleStep: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                Toggle("Run on a schedule", isOn: enabled)
-            } footer: {
+        Section {
+            Toggle("Run on a schedule", isOn: enabled)
+                .disabled(!task.canBeScheduled)
+        } header: {
+            Text("Schedule")
+        } footer: {
+            if task.canBeScheduled {
                 Text("Repeats the task unattended while AITaskRunner is open. Runs happen one at a time, and nothing from a run is kept except when it ended and whether it succeeded.")
                     .textStyle(.callout)
-            }
-            if task.schedule != nil {
-                Section {
-                    LabeledContent("Every") {
-                        Stepper(value: hours, in: TaskSchedule.intervalRange) {
-                            HStack(spacing: 4) {
-                                TextField("Hours", value: hours, format: .number.grouping(.never))
-                                    .labelsHidden()
-                                    .multilineTextAlignment(.trailing)
-                                    .frame(width: 56)
-                                Text(hours.wrappedValue == 1 ? "hour" : "hours")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    Picker("Model", selection: model) {
-                        ModelPickerOptions(
-                            choices: providers.choices, unavailable: task.preferredModel, noneTitle: "Choose a model",
-                            requirements: task.effectiveRequirements
-                        )
-                    }
-                } header: {
-                    Text("How often, and with which model")
-                } footer: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("The first run is one interval after you save; later runs follow one interval after the previous run ends. A run starts only while this model is available and supports what the task needs, otherwise it waits. Variables use the values from the last run, or their defaults.")
-                        if usesShell {
-                            Label("This task can run shell commands. In a scheduled run they run without asking for your approval.", systemImage: "exclamationmark.triangle")
-                                .foregroundStyle(.orange)
-                        }
-                    }
+            } else {
+                Label("Not available while interactive steering is on: an unattended run has nobody to answer the model's questions. Turn steering off to schedule this task.", systemImage: "info.circle")
                     .textStyle(.callout)
-                }
             }
         }
-        .formStyle(.grouped)
+        if isScheduled {
+            Section {
+                LabeledContent("Every") {
+                    Stepper(value: hours, in: TaskSchedule.intervalRange) {
+                        HStack(spacing: 4) {
+                            TextField("Hours", value: hours, format: .number.grouping(.never))
+                                .labelsHidden()
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 56)
+                            Text(hours.wrappedValue == 1 ? "hour" : "hours")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Picker("Model", selection: model) {
+                    ModelPickerOptions(
+                        choices: providers.choices, unavailable: task.preferredModel, noneTitle: "Choose a model",
+                        requirements: task.effectiveRequirements
+                    )
+                }
+            } header: {
+                Text("How often, and with which model")
+            } footer: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("The first run is one interval after you save; later runs follow one interval after the previous run ends. A run starts only while this model is available and supports what the task needs, otherwise it waits. Variables use the values from the last run, or their defaults.")
+                    if usesShell {
+                        Label("This task can run shell commands. In a scheduled run they run without asking for your approval.", systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .textStyle(.callout)
+            }
+        }
     }
 }
 
@@ -477,21 +546,6 @@ private struct ComposerSidePanel: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Toggle("Interactive steering", isOn: $task.allowsSteering)
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                Text("Adds a chat box to the run window and an ask_user tool so the model can pause and ask you questions. Interactive tasks cannot run on a schedule.")
-                    .textStyle(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.background.secondary)
-            .overlay(alignment: .top) { Divider() }
         }
         .background(.background.secondary)
     }
